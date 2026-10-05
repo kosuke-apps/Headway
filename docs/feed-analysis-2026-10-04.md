@@ -2,11 +2,11 @@
 
 Samples: 445, 2026-10-03 17:43:10 +0000 to 2026-10-04 22:07:22 +0000. Schedule S072_202608240858.
 
-A sample is one minute. Counts below are summed over samples (trip-minutes / bus-minutes).
+A sample is one trip-update snapshot (about one every 4 minutes) matched with the nearest vehicle snapshot. Counts below are summed over samples, so they count trips and buses seen, not minutes; the shares are what matter.
 
 ## 1. Scheduled trips without a reported position
 
-| | trip-minutes | share |
+| | trips seen | share |
 |---|---:|---:|
 | scheduled and in progress | 11935 | 100% |
 | with a bus position | 11614 | 97.3% |
@@ -15,7 +15,7 @@ A sample is one minute. Counts below are summed over samples (trip-minutes / bus
 
 ### By route
 
-| route | trip-minutes | without position |
+| route | trips seen | without position |
 |---|---:|---:|
 | S | 185 | 16.8% |
 | 81 | 133 | 12.8% |
@@ -37,7 +37,7 @@ A sample is one minute. Counts below are summed over samples (trip-minutes / bus
 
 ## 2. Buses reporting positions
 
-| | bus-minutes | share |
+| | buses seen | share |
 |---|---:|---:|
 | all buses in the position feed | 17409 | 100% |
 | no trip id | 1204 | 6.9% |
