@@ -147,16 +147,16 @@ struct Report {
 
     var out = "# Feed analysis\n\n"
     out += "Samples: \(samples.count), \(first.time) to \(last.time). Schedule \(schedule.feedVersion).\n\n"
-    out += "A sample is one minute. Counts below are summed over samples (trip-minutes / bus-minutes).\n\n"
+    out += "A sample is one trip-update snapshot (about one every 4 minutes) matched with the nearest vehicle snapshot. Counts below are summed over samples, so they count trips and buses seen, not minutes; the shares are what matter.\n\n"
 
     out += "## 1. Scheduled trips without a reported position\n\n"
-    out += "| | trip-minutes | share |\n|---|---:|---:|\n"
+    out += "| | trips seen | share |\n|---|---:|---:|\n"
     out += "| scheduled and in progress | \(scheduled) | 100% |\n"
     out += "| with a bus position | \(matched) | \(pct(matched, scheduled)) |\n"
     out += "| no position, but a bus is assigned in the predictions | \(ghostAssigned) | \(pct(ghostAssigned, scheduled)) |\n"
     out += "| no position and no assigned bus | \(ghostNoBus) | \(pct(ghostNoBus, scheduled)) |\n\n"
 
-    out += "### By route\n\n| route | trip-minutes | without position |\n|---|---:|---:|\n"
+    out += "### By route\n\n| route | trips seen | without position |\n|---|---:|---:|\n"
     var totals: [String: Int] = [:], ghosts: [String: Int] = [:]
     for s in samples {
       for r in s.scheduledRoutes { totals[r, default: 0] += 1 }
@@ -167,7 +167,7 @@ struct Report {
       out += "| \(schedule.routes[route]?.shortName ?? route) | \(totals[route] ?? 0) | \(pct(ghosts[route] ?? 0, totals[route] ?? 0)) |\n"
     }
 
-    out += "\n## 2. Buses reporting positions\n\n| | bus-minutes | share |\n|---|---:|---:|\n"
+    out += "\n## 2. Buses reporting positions\n\n| | buses seen | share |\n|---|---:|---:|\n"
     out += "| all buses in the position feed | \(vehicles) | 100% |\n"
     out += "| no trip id | \(samples.reduce(0) { $0 + $1.vehiclesNoTrip }) | \(pct(samples.reduce(0) { $0 + $1.vehiclesNoTrip }, vehicles)) |\n"
     out += "| trip id unknown to the schedule | \(samples.reduce(0) { $0 + $1.vehiclesUnknownTrip }) | \(pct(samples.reduce(0) { $0 + $1.vehiclesUnknownTrip }, vehicles)) |\n"

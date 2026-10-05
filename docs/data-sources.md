@@ -46,7 +46,7 @@ From `feedanalysis report` on the first 35 minutes of the recording:
 
 - About 95% of scheduled trips in progress had a bus position; about 5% had none (route R and 80 stood out, on very
   few samples). No trip was found with an assigned bus but no position.
-- About 2% of bus-minutes came from vehicles reporting no trip id.
+- About 2% of bus observations came from vehicles reporting no trip id.
 - Positions older than 60 s: about 1%.
 - Predicted arrival at the next stop minus the timetable: median +92 s, p95 +655 s, about 23% more than 5 minutes
   late, none more than 5 minutes early. This may be real lateness or a systematic offset in how predictions are

@@ -189,40 +189,69 @@ public enum RouteBundler {
       }
       let target = stable(values, minRun: minRun)
 
-      // Pieces with their offsets; a change of lane is spread over `ramp` pieces, each cut in `split` small steps, so
-      // that the line slides across instead of jumping.
-      // Near a turn the change is made at once instead: sliding sideways while turning draws hooks, and the corner hides
-      // the step.
+      // A change of lane is a slide, never a jump. Each change is spread over enough pieces for its size (at least `ramp`,
+      // and about four pieces per lane), and the slide is put on the nearest straight stretch: near a turn it would draw
+      // hooks, so it starts a little before or after the point where the bundle really changes. Each piece then has a
+      // lane at its start and at its end, and is cut into `split` small steps.
       let split = 4
       let headings = pieces.map { unit($0.from, $0.to) }
-      func turnsNear(_ index: Int, _ count: Int) -> Bool {
-        let low = max(1, index - 3), high = min(pieces.count - 1, index + count + 1)
-        guard low <= high else { return false }
-        for k in low...high where dot(headings[k], headings[k - 1]) < cos(35.0 * .pi / 180) { return true }
-        return false
+      func straight(_ start: Int, _ count: Int) -> Bool {
+        let low = max(1, start - 1), high = min(pieces.count - 1, start + count)
+        guard low <= high else { return true }
+        for k in low...high where dot(headings[k], headings[k - 1]) < cos(20.0 * .pi / 180) { return false }
+        return true
       }
-      var drawn: [(from: Point, to: Point, lane: Double)] = []
-      var i = 0
-      while i < pieces.count {
-        if i > 0, target[i] != target[i - 1], !turnsNear(i, ramp) {
-          let a = target[i - 1], b = target[i]
-          var n = 0
-          while n < ramp, i + n < pieces.count, target[i + n] == b { n += 1 }
-          let steps = Double(n * split)
-          var step = 0.0
-          for k in i..<(i + n) {
-            for part in 0..<split {
-              step += 1
-              let from = lerp(pieces[k].from, pieces[k].to, Double(part) / Double(split))
-              let to = lerp(pieces[k].from, pieces[k].to, Double(part + 1) / Double(split))
-              drawn.append((from, to, a + (b - a) * step / steps))
+      var laneStart = target, laneEnd = target
+      var changes: [Int] = []
+      for k in 1..<max(1, pieces.count) where target[k] != target[k - 1] { changes.append(k) }
+      var floor = 0  // pieces before this belong to an earlier slide
+      for (n, c) in changes.enumerated() {
+        let a = target[c - 1], b = target[c]
+        let ceiling = n + 1 < changes.count ? changes[n + 1] : pieces.count
+        var length = min(40, max(ramp, Int((abs(b - a) * 4).rounded(.up))))
+        length = min(length, ceiling - floor)
+        var chosen: Int?
+        if length >= 1 {
+          for distance in 0...30 {
+            for start in distance == 0 ? [c] : [c - distance, c + distance] where start >= floor && start + length <= ceiling {
+              if straight(start, length) {
+                chosen = start
+                break
+              }
             }
+            if chosen != nil { break }
           }
-          i += n
+        }
+        guard let start = chosen else {
+          floor = c  // no straight stretch near: the change stays a step
           continue
         }
-        drawn.append((pieces[i].from, pieces[i].to, target[i]))
-        i += 1
+        for k in floor..<ceiling {
+          if k < start {
+            laneStart[k] = a
+            laneEnd[k] = a
+          } else if k < start + length {
+            laneStart[k] = a + (b - a) * Double(k - start) / Double(length)
+            laneEnd[k] = a + (b - a) * Double(k - start + 1) / Double(length)
+          } else {
+            laneStart[k] = b
+            laneEnd[k] = b
+          }
+        }
+        floor = start + length
+      }
+
+      var drawn: [(from: Point, to: Point, lane: Double)] = []
+      for (k, piece) in pieces.enumerated() {
+        if laneStart[k] == laneEnd[k] {
+          drawn.append((piece.from, piece.to, laneStart[k]))
+          continue
+        }
+        for part in 0..<split {
+          let from = lerp(piece.from, piece.to, Double(part) / Double(split))
+          let to = lerp(piece.from, piece.to, Double(part + 1) / Double(split))
+          drawn.append((from, to, laneStart[k] + (laneEnd[k] - laneStart[k]) * (Double(part) + 0.5) / Double(split)))
+        }
       }
 
       var start = 0

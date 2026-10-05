@@ -10,7 +10,7 @@ import HeadwayCore
 struct MapOverlayData: Codable, Equatable, Sendable {
   /// Raise this whenever what the overlay holds, or how it is computed (for example the bundling of lanes), changes: a
   /// saved copy of an older version is then ignored and rebuilt from the timetable.
-  static let currentVersion = 7
+  static let currentVersion = 8
 
   struct RouteInfo: Codable, Equatable, Sendable {
     var id: String
