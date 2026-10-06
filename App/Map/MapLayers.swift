@@ -35,7 +35,6 @@ final class MapLayers {
   private let earlyLayer: MLNCircleStyleLayer
   private let selectedBusLayer: MLNCircleStyleLayer
   private let offRouteLayer: MLNCircleStyleLayer
-  private let pointerLayer: MLNSymbolStyleLayer
   private let staleLayer: MLNCircleStyleLayer
   private let journeySource: MLNShapeSource
   private let journeyPointSource: MLNShapeSource
@@ -48,6 +47,7 @@ final class MapLayers {
   private var busRings: [String: MLNCircleStyleLayer] = [:]
   private var busDots: [String: MLNCircleStyleLayer] = [:]
   private var busLabels: [String: MLNSymbolStyleLayer] = [:]
+  private var busTags: [String: MLNSymbolStyleLayer] = [:]
 
   init(style: MLNStyle, overlay: MapOverlay) {
     self.style = style
@@ -80,7 +80,6 @@ final class MapLayers {
       style.addSource(source)
     }
     style.setImage(Self.arrowImage(), forName: "route-arrow")
-    style.setImage(Self.pointerImage(), forName: "bus-pointer")
 
     for id in routeIDs {
       let casing = MLNLineStyleLayer(identifier: "route-casing-\(id)", source: routeSource)
@@ -160,11 +159,6 @@ final class MapLayers {
     offRouteLayer = MLNCircleStyleLayer(identifier: "off-route", source: busSource)
     offRouteLayer.predicate = NSPredicate(format: "off == %@", NSNumber(value: true))
     style.addLayer(offRouteLayer)
-    // A pointer on the rim of each bus, turned the way the bus is heading. It sits under the bus's own ring, so that it
-    // seems to grow out of the marker.
-    pointerLayer = MLNSymbolStyleLayer(identifier: "bus-pointer", source: busSource)
-    pointerLayer.predicate = NSPredicate(format: "hb == %@", NSNumber(value: true))
-    style.addLayer(pointerLayer)
     for id in routeIDs {
       let ring = MLNCircleStyleLayer(identifier: "bus-ring-\(id)", source: busSource)
       ring.predicate = NSPredicate(format: "route == %@", id)
@@ -178,31 +172,15 @@ final class MapLayers {
       label.predicate = NSPredicate(format: "route == %@", id)
       busLabels[id] = label
       style.addLayer(label)
+      let tag = MLNSymbolStyleLayer(identifier: "bus-tag-\(id)", source: busSource)
+      tag.predicate = NSPredicate(format: "route == %@ AND tag != ''", id)
+      busTags[id] = tag
+      style.addLayer(tag)
     }
     // A veil over buses whose last report is old: they may not be where they are drawn.
     staleLayer = MLNCircleStyleLayer(identifier: "bus-stale", source: busSource)
     staleLayer.predicate = NSPredicate(format: "stale == %@", NSNumber(value: true))
     style.addLayer(staleLayer)
-  }
-
-  /// An arrowhead at the top edge of a transparent square, so that turning the whole image about its centre by the bus's
-  /// bearing puts the arrow on the rim of the marker in the right direction.
-  private static func pointerImage() -> UIImage {
-    let size = CGSize(width: 64, height: 64)
-    return UIGraphicsImageRenderer(size: size).image { _ in
-      let path = UIBezierPath()
-      path.move(to: CGPoint(x: 32, y: 3))
-      path.addLine(to: CGPoint(x: 42, y: 20))
-      path.addLine(to: CGPoint(x: 32, y: 15))
-      path.addLine(to: CGPoint(x: 22, y: 20))
-      path.close()
-      path.lineJoinStyle = .round
-      UIColor(white: 0.1, alpha: 0.95).setStroke()
-      path.lineWidth = 3
-      path.stroke()
-      UIColor.white.setFill()
-      path.fill()
-    }
   }
 
   /// A small white arrowhead with a dark edge, drawn pointing east; the map turns it along the line.
@@ -235,15 +213,37 @@ final class MapLayers {
   /// How thick lines are drawn on a street with `crowd` routes: full up to three, then thinner, never below half.
   static func thickness(crowd: Double) -> Double { max(0.5, min(1, 1 - 0.07 * (crowd - 3))) }
 
-  /// An expression that grows with zoom like `ramp`, scaled by the feature's own `k` (and by `lane` when asked for).
-  private static func scaled(low: Double, high: Double, lane: Bool = false) -> NSExpression {
-    func stop(_ size: Double) -> NSExpression {
-      var expression = NSExpression(forFunction: "multiply:by:", arguments: [NSExpression(forKeyPath: "k"), NSExpression(forConstantValue: size)])
+  // Route lines are thin on the whole-city view and grow with zoom; each list has one entry per zoom in `lineZooms`, for a
+  // line width setting of 1.
+  private static let lineZooms: [Double] = [9, 10, 12, 14, 16]
+  private static let lineWidths: [Double] = [0.8, 1.1, 2.0, 3.8, 6]
+  /// Space between lines lying side by side, and the extra width of the dark edge around a line.
+  private static let lineGaps: [Double] = [0.8, 1, 1.3, 1.9, 2.5]
+  private static let casingExtras: [Double] = [1.2, 1.5, 1.9, 2.4, 3]
+
+  /// A size that follows `lineZooms`, scaled by the feature's own `k` (and by `lane` when asked for). The
+  /// multiplication sits inside the zoom curve's stops, which is the only place a style may combine the two.
+  private static func scaled(lane: Bool = false, _ size: (Int) -> Double) -> NSExpression {
+    var stops: [NSNumber: NSExpression] = [:]
+    for (index, zoom) in lineZooms.enumerated() {
+      var expression = NSExpression(forFunction: "multiply:by:", arguments: [NSExpression(forKeyPath: "k"), NSExpression(forConstantValue: size(index))])
       if lane { expression = NSExpression(forFunction: "multiply:by:", arguments: [NSExpression(forKeyPath: "lane"), expression]) }
-      return expression
+      stops[NSNumber(value: zoom)] = expression
     }
-    let stops: [NSNumber: NSExpression] = [10: stop(low), 16: stop(high)]
     return NSExpression(format: "mgl_interpolate:withCurveType:parameters:stops:($zoomLevel, 'linear', nil, %@)", stops as NSDictionary)
+  }
+
+  /// The same sizes for a line that does not depend on the feature.
+  private static func lineRamp(_ size: (Int) -> Double) -> NSExpression {
+    ramp(Dictionary(uniqueKeysWithValues: lineZooms.enumerated().map { ($1, size($0)) }))
+  }
+
+  /// Buses are drawn at this share of the chosen marker size: small on the whole-city view, full from zoom 15.
+  private static let busZooms: [Double: Double] = [10: 0.3, 12: 0.55, 14: 0.9, 15: 1]
+
+  /// A bus-sized circle radius or text size: `size` plus `extra` at full scale, shrinking with the map.
+  private static func busSize(_ size: Double, extra: Double = 0) -> NSExpression {
+    ramp(busZooms.mapValues { ($0 * (size + extra)) })
   }
 
   /// Opacity that follows the feature's own `a0` (zoomed out) and `a1` (zoomed in), times `opacity`.
@@ -258,16 +258,6 @@ final class MapLayers {
   private static func ramp(_ stops: [Double: Double]) -> NSExpression {
     NSExpression(
       format: "mgl_interpolate:withCurveType:parameters:stops:($zoomLevel, 'linear', nil, %@)", stops as NSDictionary)
-  }
-
-  /// A sideways offset of `lane` steps, where a step grows from `low` points at zoom 10 to `high` at zoom 16. The
-  /// multiplication sits inside the zoom curve's stops, which is the only place a style may combine the two.
-  private static func laneOffset(low: Double, high: Double) -> NSExpression {
-    func step(_ size: Double) -> NSExpression {
-      NSExpression(forFunction: "multiply:by:", arguments: [NSExpression(forKeyPath: "lane"), NSExpression(forConstantValue: size)])
-    }
-    let stops: [NSNumber: NSExpression] = [10: step(low), 16: step(high)]
-    return NSExpression(format: "mgl_interpolate:withCurveType:parameters:stops:($zoomLevel, 'linear', nil, %@)", stops as NSDictionary)
   }
 
   // MARK: Restyling
@@ -302,10 +292,10 @@ final class MapLayers {
       line.lineColor = NSExpression(forConstantValue: look.fill)
       line.lineOpacity = Self.fade(look.opacity)
       // Lines are thinner where many routes share a street (`k`), so that a bundle of eleven stays readable.
-      line.lineWidth = bundled ? Self.scaled(low: 2 * width, high: 6 * width) : Self.ramp([10: 2 * width * boost, 16: 6 * width * boost])
+      line.lineWidth = bundled ? Self.scaled { width * Self.lineWidths[$0] } : Self.lineRamp { width * boost * Self.lineWidths[$0] }
       // Routes that share a street lie side by side while looking at the whole network; a route on its own, or a
       // journey, is drawn on the street itself.
-      let offset: NSExpression = bundled ? Self.scaled(low: 2 * width + 1, high: 6 * width + 2.5, lane: true) : NSExpression(forConstantValue: 0)
+      let offset: NSExpression = bundled ? Self.scaled(lane: true) { width * Self.lineWidths[$0] + Self.lineGaps[$0] } : NSExpression(forConstantValue: 0)
       line.lineOffset = offset
       casing.lineOffset = offset
       // A route with an alert in force is dashed: its service differs from the usual.
@@ -314,36 +304,40 @@ final class MapLayers {
       line.lineDashPattern = alerted ? NSExpression(forConstantValue: [1.8, 1.4]) : nil
       casing.lineColor = NSExpression(forConstantValue: theme.routeCasing)
       casing.lineOpacity = Self.fade(look.opacity)
-      casing.lineWidth = bundled ? Self.scaled(low: 2 * width + 1.5, high: 6 * width + 3) : Self.ramp([10: 2 * width * boost + 1.5, 16: 6 * width * boost + 3])
+      casing.lineWidth = bundled ? Self.scaled { width * Self.lineWidths[$0] + Self.casingExtras[$0] } : Self.lineRamp { width * boost * Self.lineWidths[$0] + Self.casingExtras[$0] }
 
       let radius = prefs.markerSize.radius
-      let ring = busRings[id]!, dot = busDots[id]!, label = busLabels[id]!
-      for layer in [ring, dot] { layer.isVisible = look.visible }
+      let ring = busRings[id]!, dot = busDots[id]!, label = busLabels[id]!, tag = busTags[id]!
+      for layer in [ring, dot, tag] { layer.isVisible = look.visible }
       label.isVisible = look.visible && prefs.showRouteNameOnBuses
-      ring.circleColor = NSExpression(forConstantValue: theme.busRing)
-      ring.circleRadius = NSExpression(forConstantValue: radius + 2)
+      // The ring says which way the trip runs: white for direction 1 (mostly east- and northbound), black for direction 0.
+      ring.circleColor = NSExpression(format: "TERNARY(dir == 1, %@, TERNARY(dir == 0, %@, %@))", UIColor.white, UIColor(white: 0.05, alpha: 1), UIColor.gray)
+      ring.circleRadius = Self.busSize(radius, extra: 2.5)
       ring.circleOpacity = NSExpression(forConstantValue: look.opacity)
       dot.circleColor = NSExpression(forConstantValue: look.busFill)
-      dot.circleRadius = NSExpression(forConstantValue: radius)
+      dot.circleRadius = Self.busSize(radius)
       dot.circleOpacity = NSExpression(forConstantValue: look.opacity)
       label.text = NSExpression(forKeyPath: "label")
       label.textFontNames = NSExpression(forConstantValue: ["Noto Sans Medium"])
-      label.textFontSize = NSExpression(forConstantValue: radius * 1.05)
+      label.textFontSize = Self.busSize(radius * 1.05)
+      label.minimumZoomLevel = 12.3
       label.textColor = NSExpression(forConstantValue: look.busText)
       label.textOpacity = NSExpression(forConstantValue: look.opacity)
       label.textAllowsOverlap = NSExpression(forConstantValue: true)
       label.textIgnoresPlacement = NSExpression(forConstantValue: true)
+      // The way the trip runs ("E"), small, at the lower right of the marker.
+      tag.text = NSExpression(forKeyPath: "tag")
+      tag.textFontNames = NSExpression(forConstantValue: ["Noto Sans Medium"])
+      tag.textFontSize = Self.busSize(radius * 0.95)
+      tag.textColor = NSExpression(forConstantValue: theme.labelText)
+      tag.textHaloColor = NSExpression(forConstantValue: theme.labelHalo)
+      tag.textHaloWidth = NSExpression(forConstantValue: 1.6)
+      tag.textOpacity = NSExpression(forConstantValue: look.opacity)
+      tag.textOffset = NSExpression(forConstantValue: NSValue(cgVector: CGVector(dx: 1.1, dy: 1.0)))
+      tag.textAllowsOverlap = NSExpression(forConstantValue: true)
+      tag.textIgnoresPlacement = NSExpression(forConstantValue: true)
+      tag.minimumZoomLevel = 12.8
     }
-
-    // The pointer on each bus: its tip is about 29 points from the centre of the image, so the image is scaled to put
-    // it just outside the marker.
-    pointerLayer.iconImageName = NSExpression(forConstantValue: "bus-pointer")
-    pointerLayer.iconRotation = NSExpression(forKeyPath: "bearing")
-    pointerLayer.iconRotationAlignment = NSExpression(forConstantValue: "map")
-    pointerLayer.iconScale = NSExpression(forConstantValue: (prefs.markerSize.radius + 3) / 17)
-    pointerLayer.iconAllowsOverlap = NSExpression(forConstantValue: true)
-    pointerLayer.iconIgnoresPlacement = NSExpression(forConstantValue: true)
-    pointerLayer.isVisible = !state.focus.isActive || true
 
     // Arrows along the focused route (only in the chosen direction)
     arrowLayer.isVisible = focus.isActive
@@ -411,23 +405,23 @@ final class MapLayers {
     stopNames.maximumTextWidth = NSExpression(forConstantValue: 8)
 
     staleLayer.circleColor = NSExpression(forConstantValue: theme.stopFill.withAlphaComponent(0.6))
-    staleLayer.circleRadius = NSExpression(forConstantValue: prefs.markerSize.radius + 2.5)
+    staleLayer.circleRadius = Self.busSize(prefs.markerSize.radius, extra: 2.5)
     offRouteLayer.circleColor = NSExpression(forConstantValue: UIColor.clear)
     offRouteLayer.circleStrokeColor = NSExpression(forConstantValue: UIColor.systemOrange)
     offRouteLayer.circleStrokeWidth = NSExpression(forConstantValue: 3)
-    offRouteLayer.circleRadius = NSExpression(forConstantValue: prefs.markerSize.radius + 5)
+    offRouteLayer.circleRadius = Self.busSize(prefs.markerSize.radius, extra: 5)
 
     for (layer, color) in [(lateLayer, UIColor.systemRed), (earlyLayer, UIColor.systemBlue)] {
       layer.circleColor = NSExpression(forConstantValue: UIColor.clear)
       layer.circleStrokeColor = NSExpression(forConstantValue: color)
       layer.circleStrokeWidth = NSExpression(forConstantValue: 4)
-      layer.circleRadius = NSExpression(forConstantValue: prefs.markerSize.radius + 6)
+      layer.circleRadius = Self.busSize(prefs.markerSize.radius, extra: 6)
     }
 
     selectedBusLayer.circleColor = NSExpression(forConstantValue: UIColor.clear)
     selectedBusLayer.circleStrokeColor = NSExpression(forConstantValue: UIColor.systemBlue)
     selectedBusLayer.circleStrokeWidth = NSExpression(forConstantValue: 3)
-    selectedBusLayer.circleRadius = NSExpression(forConstantValue: prefs.markerSize.radius + 6)
+    selectedBusLayer.circleRadius = Self.busSize(prefs.markerSize.radius, extra: 6)
   }
 
   // MARK: Journey
@@ -435,9 +429,9 @@ final class MapLayers {
   func applyJourneyStyle(_ state: MapState) {
     let theme = MapTheme.make(dark: state.isDark)
     journeyCasing?.lineColor = NSExpression(forConstantValue: theme.routeCasing)
-    journeyCasing?.lineWidth = Self.ramp([10: 8, 16: 16])
+    journeyCasing?.lineWidth = Self.ramp([9: 5, 10: 6, 12: 9, 14: 12, 16: 16])
     journeyWalk?.lineColor = NSExpression(forConstantValue: state.isDark ? UIColor(white: 0.85, alpha: 1) : UIColor(white: 0.3, alpha: 1))
-    journeyWalk?.lineWidth = Self.ramp([10: 3, 16: 5])
+    journeyWalk?.lineWidth = Self.ramp([9: 2, 10: 2.4, 12: 3, 14: 4, 16: 5])
     journeyWalk?.lineDashPattern = NSExpression(forConstantValue: [1.2, 1.4])
     journeyWalk?.lineCap = NSExpression(forConstantValue: "butt")
     if let arrows = journeyArrows {
@@ -467,7 +461,7 @@ final class MapLayers {
       features.append(feature)
       if !line.isWalk, index < Self.journeyLegSlots {
         journeyRides[index].lineColor = NSExpression(forConstantValue: line.color ?? UIColor.systemBlue)
-        journeyRides[index].lineWidth = Self.ramp([10: 4.5, 16: 10])
+        journeyRides[index].lineWidth = Self.ramp([9: 3, 10: 3.6, 12: 5, 14: 7.5, 16: 10])
       }
     }
     journeySource.shape = MLNShapeCollectionFeature(shapes: features)
@@ -571,8 +565,8 @@ final class MapLayers {
         "off": state.offRouteVehicles.contains(vehicle.id),
         "stale": bus.age > Self.staleAfter,
         "hl": focus.highlightedBuses[vehicle.id]?.rawValue ?? "",
-        "hb": vehicle.bearing != nil,
-        "bearing": vehicle.bearing ?? 0,
+        "dir": state.vehicleDirections[vehicle.id] ?? -1,
+        "tag": state.vehicleHeadings[vehicle.id] ?? "",
       ]
       features.append(point)
       if vehicle.id == state.selectedVehicle { selected = point }

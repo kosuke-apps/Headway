@@ -9,17 +9,16 @@ struct MapTheme {
   let stopStroke: UIColor
   let labelText: UIColor
   let labelHalo: UIColor
-  let busRing: UIColor
 
   static func make(dark: Bool) -> MapTheme {
     dark
       ? MapTheme(
         isDark: true, routeCasing: UIColor(white: 0.08, alpha: 1), stopFill: UIColor(white: 0.12, alpha: 1),
         stopStroke: UIColor(white: 0.92, alpha: 1), labelText: UIColor(white: 0.93, alpha: 1),
-        labelHalo: UIColor(white: 0.1, alpha: 1), busRing: UIColor(white: 0.08, alpha: 1))
+        labelHalo: UIColor(white: 0.1, alpha: 1))
       : MapTheme(
         isDark: false, routeCasing: .white, stopFill: .white, stopStroke: UIColor(white: 0.25, alpha: 1),
-        labelText: UIColor(white: 0.15, alpha: 1), labelHalo: .white, busRing: .white)
+        labelText: UIColor(white: 0.15, alpha: 1), labelHalo: .white)
   }
 }
 

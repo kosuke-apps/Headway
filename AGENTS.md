@@ -47,6 +47,15 @@ The author's general workspace rules (outside this repository) apply too; this f
     per-direction shapes instead (`kind` "d" versus "o"). `feedanalysis overview <zip> <out.geojson>` exports the layout
     to look at in a browser. Raise `MapOverlayData.currentVersion` when this changes; an older saved copy is still drawn
     until the new one is computed (about 0.4 s in a Release build on a Mac, once per timetable).
+  - Crowding and detail: streets with more than three routes draw thinner lines (`crowd`, down to half; the feature's `k`),
+    and from zoom 16 a second set (`detail`, `RouteBundler.overview(merge: 10, snap: 8)`) separates the two directions where
+    they run apart; the sets cross-fade at zoom 16 (`a0`/`a1`). A focused route uses `directionLines`, which merge the
+    variants of a direction (D1, D2, Verona, Epic Campus) into one line. Line widths, lane gaps, bus markers and journey
+    lines all shrink with zoom (`MapLayers.lineZooms`, `busZooms`).
+  - Bus markers: the route name and the pattern number from the headsign ("D2") inside, the ring white for trip direction 1
+    and black for 0 (mostly east/north and west/south), and a small letter beside it from the feed's `trip_direction_name`
+    ("E", "W", "N", "S", "In", "Out"; loops have none). The feed's own `bearing` is not used: a bus changes it at every turn,
+    and the trip's direction is what a rider means by "eastbound".
   - Stops: `cardinal_direction` in stops.txt gives the way each stop's buses go; the stop sheet, search, planner steps,
     the timetable and an arrow beside each stop on the map show it (`Compass`, `AppModel.stopSide`).
   - `Sources/HeadwayCore/ServiceOutlook.swift` (today's first/last trip and the next trip of a route and direction),
@@ -184,6 +193,11 @@ The author's general workspace rules (outside this repository) apply too; this f
   background refresh, which is usually every 15 minutes to a few hours and not at all for an app that is rarely opened.
   Real push needs the paid Developer Program (APNs) or a relay such as ntfy fed by the collector; neither is built.
 - Bus markers trail the real bus by up to one update interval plus the feed's own latency.
+- Versions: `0.MINOR.PATCH` (semantic versioning; the project is below 1.0). A batch of fixes gets the next patch
+  (0.3.0 to 0.3.1) and a new feature or a visible change gets the next minor (0.3.x to 0.4.0); both are tagged `vX.Y.Z`
+  (annotated, the message says what changed) right after the commit, with `MARKETING_VERSION` and
+  `CURRENT_PROJECT_VERSION` in `project.yml` raised to match. Patch tags need no asking. 1.0.0 is for the owner to
+  decide. Tags and releases are pushed only when pushing is allowed (see the owner's repository notes).
 - Publishing: the data terms contain an indemnification clause (see `docs/data-sources.md`); the App Store needs the
   paid Developer Program; map tiles need the OSM attribution (already in Settings and the map's info button).
 - Ideas not started: notifications when a bus is near, a push relay fed by the collector, widgets, other cities (GTFS is generic, the feed URLs and
