@@ -89,7 +89,7 @@ installs it). A free Apple ID works; the app must be re-signed every 7 days.
 ## Quality checks
 
 ```bash
-swift test                                                       # data layer (120 tests)
+swift test                                                       # data layer (124 tests)
 xcodebuild test -project Headway.xcodeproj -scheme Headway \
   -destination 'platform=iOS Simulator,name=iPhone 18 Pro' CODE_SIGNING_ALLOWED=NO   # app tests (42)
 (cd collector && npm test)                                       # collector, in Cloudflare's runtime (9 tests)
