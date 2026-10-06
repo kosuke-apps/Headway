@@ -44,6 +44,8 @@ struct MapState {
   var vehicles: [VehicleSample] = []
   /// Direction (0 or 1) of each bus's trip, once the timetable is known.
   var vehicleDirections: [String: Int] = [:]
+  /// The number that begins a bus's destination ("2" for "2-Airport"), added to its route name on the marker.
+  var vehiclePatterns: [String: String] = [:]
   var prefs = MapPreferences()
   var focus = MapFocus()
   var selectedStop: String?

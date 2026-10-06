@@ -122,6 +122,33 @@ import Testing
     #expect(result.flatMap(\.coordinates).allSatisfy { $0.latitude < 43.0001 })
   }
 
+  @Test func crowdCountsTheRoutesOnAStreet() {
+    let result = RouteBundler.overview([
+      input("A", order: 1, street(-89.400, -89.380)),
+      input("B", order: 2, street(-89.392, -89.372)),
+      input("C", order: 3, street(-89.392, -89.372)),
+    ])
+    #expect(lines(result, "A").first?.crowd == 1)
+    #expect(lines(result, "B").first?.crowd == 3)
+    #expect(lines(result, "B").last?.crowd == 2)
+  }
+
+  @Test func directionLinesMergeVariantsOfADirection() {
+    // Two destinations that share a street and part at the end, and the way back along the same street.
+    let main = street(-89.40, -89.38)
+    let variant = street(-89.40, -89.388) + street(-89.388, -89.384, latitude: 43.0006)
+    let back = street(-89.38, -89.40, latitude: 43.00005)
+    let lines = RouteBundler.directionLines([
+      input("D", order: 1, direction: 0, id: "to-a", main), input("D", order: 1, direction: 0, id: "to-b", variant),
+      input("D", order: 1, direction: 1, id: "back", back),
+    ])
+    #expect(lines.filter { $0.direction == 0 }.count == 2, "the main line and the branch of the second destination")
+    #expect(lines.filter { $0.direction == 1 }.count == 1)
+    // The shared part is drawn once: the branch holds only the part that differs.
+    let branchLength = lines.filter { $0.direction == 0 }.map { l in zip(l.coordinates, l.coordinates.dropFirst()).reduce(0) { $0 + Geometry.distance(from: $1.0, to: $1.1) } }.min() ?? 0
+    #expect(branchLength < 700)
+  }
+
   @Test func theRealFeedGivesFewLongLanes() throws {
     guard let url = RealFeedTests.zip else { return }
     let schedule = try Schedule.load(zipAt: url)
@@ -136,7 +163,7 @@ import Testing
       zip(line.coordinates, line.coordinates.dropFirst()).reduce(0) { $0 + Geometry.distance(from: $1.0, to: $1.1) }
     }
     let total = result.reduce(0) { $0 + meters($1) }
-    let whole = result.filter { $0.lane == $0.lane.rounded() || $0.lane * 2 == ($0.lane * 2).rounded() }
+    let whole = result.filter { ($0.lane * 2 == ($0.lane * 2).rounded()) && $0.crowd == $0.crowd.rounded() }  // not in a slide
     let pieces = Double(whole.count)
     print("bundling: \(result.count) pieces, \(Int(total / 1000)) km, \(Int(total / pieces)) m per piece")
     #expect(total / pieces > 300, "lanes should last hundreds of metres, not a few steps")

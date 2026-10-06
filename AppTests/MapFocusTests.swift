@@ -79,3 +79,26 @@ import UIKit
     #expect(overlay.coordinates(route: "Z", direction: nil).isEmpty)
   }
 }
+
+@Suite struct BusPatternTests {
+  @Test func theNumberInFrontOfADestinationIsThePattern() {
+    #expect(AppModel.pattern(ofHeadsign: "2-AIRPORT") == "2")
+    #expect(AppModel.pattern(ofHeadsign: "1-SPRECHER") == "1")
+    #expect(AppModel.pattern(ofHeadsign: "12-EAST") == "12")
+  }
+
+  @Test func destinationsWithoutANumberHaveNoPattern() {
+    #expect(AppModel.pattern(ofHeadsign: "MEMORIAL UNION VIA EAGLE HEIGHTS") == nil)
+    #expect(AppModel.pattern(ofHeadsign: "OWL CREEK") == nil)
+    #expect(AppModel.pattern(ofHeadsign: "") == nil)
+    #expect(AppModel.pattern(ofHeadsign: "-AIRPORT") == nil)
+    #expect(AppModel.pattern(ofHeadsign: "UW-MADISON") == nil)
+  }
+
+  @Test func crowdedStreetsGetThinnerLinesButNeverBelowHalf() {
+    #expect(MapLayers.thickness(crowd: 1) == 1)
+    #expect(MapLayers.thickness(crowd: 3) == 1)
+    #expect(MapLayers.thickness(crowd: 6) < 1)
+    #expect(MapLayers.thickness(crowd: 40) == 0.5)
+  }
+}

@@ -85,6 +85,9 @@ final class AppModel {
   private(set) var overlay: MapOverlay?
   /// Direction (0 or 1) of each live bus's trip.
   private(set) var vehicleDirections: [String: Int] = [:]
+  /// The pattern number in each live bus's destination ("2" for "2-Airport"): D buses to the airport and to Epic
+  /// Campus are told apart by it.
+  private(set) var vehiclePatterns: [String: String] = [:]
   /// Scheduled service of each route and direction (`outlookKey`), for "no buses right now" versus "not running today".
   private(set) var outlooks: [String: ServiceOutlook] = [:]
   /// True when the board shows service after the next three hours because nothing else is coming.
@@ -603,6 +606,7 @@ final class AppModel {
       Task.detached(priority: .utility) { OverlayStore.save(data) }
     }
     vehicleDirections = directions(of: vehicles)
+    vehiclePatterns = patterns(of: vehicles)
     refreshOutlooks()
     refreshArrivals()
   }
@@ -622,6 +626,22 @@ final class AppModel {
       }
       await MainActor.run { self?.outlooks = result }
     }
+  }
+
+  /// "2" for a destination such as "2-AIRPORT"; nil when the destination has no number in front.
+  nonisolated static func pattern(ofHeadsign headsign: String) -> String? {
+    guard let dash = headsign.firstIndex(of: "-"), dash != headsign.startIndex else { return nil }
+    let head = headsign[..<dash]
+    return head.allSatisfy(\.isNumber) ? String(head) : nil
+  }
+
+  private func patterns(of vehicles: [VehicleSample]) -> [String: String] {
+    guard let schedule else { return [:] }
+    var result: [String: String] = [:]
+    for vehicle in vehicles {
+      if let trip = schedule.trips[vehicle.tripID], let pattern = Self.pattern(ofHeadsign: trip.headsign) { result[vehicle.id] = pattern }
+    }
+    return result
   }
 
   /// The direction of each bus's trip, from the timetable.
@@ -720,6 +740,7 @@ final class AppModel {
           feedTimestamp = snapshot.feedTimestamp
           vehicles = snapshot.vehicles
           vehicleDirections = directions(of: snapshot.vehicles)
+          vehiclePatterns = patterns(of: snapshot.vehicles)
           offRouteVehicleIDs = computeOffRoute(snapshot.vehicles)
           unchanged = 0
           lastChange = Date()
