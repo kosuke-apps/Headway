@@ -46,6 +46,8 @@ struct MapState {
   var vehicleDirections: [String: Int] = [:]
   /// The number that begins a bus's destination ("2" for "2-Airport"), added to its route name on the marker.
   var vehiclePatterns: [String: String] = [:]
+  /// The way each bus's trip runs as a letter ("E", "W", "N", "S"), written beside its marker.
+  var vehicleHeadings: [String: String] = [:]
   var prefs = MapPreferences()
   var focus = MapFocus()
   var selectedStop: String?

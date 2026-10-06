@@ -88,6 +88,8 @@ final class AppModel {
   /// The pattern number in each live bus's destination ("2" for "2-Airport"): D buses to the airport and to Epic
   /// Campus are told apart by it.
   private(set) var vehiclePatterns: [String: String] = [:]
+  /// The way each live bus's trip runs, as a letter for the marker ("E" for Eastbound); loops have none.
+  private(set) var vehicleHeadings: [String: String] = [:]
   /// Scheduled service of each route and direction (`outlookKey`), for "no buses right now" versus "not running today".
   private(set) var outlooks: [String: ServiceOutlook] = [:]
   /// True when the board shows service after the next three hours because nothing else is coming.
@@ -607,6 +609,7 @@ final class AppModel {
     }
     vehicleDirections = directions(of: vehicles)
     vehiclePatterns = patterns(of: vehicles)
+    vehicleHeadings = headings(of: vehicles)
     refreshOutlooks()
     refreshArrivals()
   }
@@ -640,6 +643,29 @@ final class AppModel {
     var result: [String: String] = [:]
     for vehicle in vehicles {
       if let trip = schedule.trips[vehicle.tripID], let pattern = Self.pattern(ofHeadsign: trip.headsign) { result[vehicle.id] = pattern }
+    }
+    return result
+  }
+
+  /// "E" for a trip the feed calls "Eastbound" (likewise W, N, S; "In" and "Out"); nil for loops, which have one way
+  /// round, and for names it does not know.
+  nonisolated static func heading(ofDirectionName name: String) -> String? {
+    switch name.lowercased() {
+    case "eastbound": "E"
+    case "westbound": "W"
+    case "northbound": "N"
+    case "southbound": "S"
+    case "inbound": "In"
+    case "outbound": "Out"
+    default: nil
+    }
+  }
+
+  private func headings(of vehicles: [VehicleSample]) -> [String: String] {
+    guard let schedule else { return [:] }
+    var result: [String: String] = [:]
+    for vehicle in vehicles {
+      if let trip = schedule.trips[vehicle.tripID], let heading = Self.heading(ofDirectionName: trip.directionName) { result[vehicle.id] = heading }
     }
     return result
   }
@@ -741,6 +767,7 @@ final class AppModel {
           vehicles = snapshot.vehicles
           vehicleDirections = directions(of: snapshot.vehicles)
           vehiclePatterns = patterns(of: snapshot.vehicles)
+          vehicleHeadings = headings(of: snapshot.vehicles)
           offRouteVehicleIDs = computeOffRoute(snapshot.vehicles)
           unchanged = 0
           lastChange = Date()

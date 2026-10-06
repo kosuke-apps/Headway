@@ -36,6 +36,8 @@ the data the city publishes (see Data below), and bus times can differ from what
 - **Overlapping routes.** Routes that share a street are drawn side by side in lanes on one shared centre line, like a
   transit diagram, with one line per route where both directions use the same street; tapping lines of several routes
   asks which one you meant.
+- **Which way a bus goes.** Each bus shows its route and pattern ("D2"), a small letter for the way its trip runs
+  ("E", "W", "N", "S") and a white or black ring (white for east- and northbound, black for west- and southbound).
 - **Which side of the street.** Stops of the same name on either side of a street are told apart: the stop sheet, search,
   planner steps and timetable say "Southbound" and so on, and an arrow beside each stop on the map shows the way. Each route and direction says how many buses are running, or why
   there are none (not running today, between trips), with the next trip.

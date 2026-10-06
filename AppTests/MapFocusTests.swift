@@ -95,6 +95,21 @@ import UIKit
     #expect(AppModel.pattern(ofHeadsign: "UW-MADISON") == nil)
   }
 
+  @Test func theFeedsDirectionNamesBecomeLettersOnTheMarker() {
+    #expect(AppModel.heading(ofDirectionName: "Eastbound") == "E")
+    #expect(AppModel.heading(ofDirectionName: "Westbound") == "W")
+    #expect(AppModel.heading(ofDirectionName: "Northbound") == "N")
+    #expect(AppModel.heading(ofDirectionName: "Southbound") == "S")
+    #expect(AppModel.heading(ofDirectionName: "Inbound") == "In")
+    #expect(AppModel.heading(ofDirectionName: "Outbound") == "Out")
+  }
+
+  @Test func loopsAndUnknownNamesHaveNoLetter() {
+    #expect(AppModel.heading(ofDirectionName: "West Loop") == nil)
+    #expect(AppModel.heading(ofDirectionName: "East Loop") == nil)
+    #expect(AppModel.heading(ofDirectionName: "") == nil)
+  }
+
   @Test func crowdedStreetsGetThinnerLinesButNeverBelowHalf() {
     #expect(MapLayers.thickness(crowd: 1) == 1)
     #expect(MapLayers.thickness(crowd: 3) == 1)
