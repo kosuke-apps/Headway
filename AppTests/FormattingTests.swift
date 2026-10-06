@@ -75,4 +75,15 @@ import UIKit
     #expect(RouteColors.fillHex(for: route, palette: .quiet, among: [route]) == "8E8E93")
     #expect(RouteColors.fillHex(for: route, palette: .agency, among: [route]) == "FF0000")
   }
+
+  @Test func theMarkNextToATimetableMinuteSaysHowFarTheBusIsFromIt() throws {
+    #expect(TimeText.delayMark(seconds: 0) == nil)
+    #expect(TimeText.delayMark(seconds: 29) == nil)
+    #expect(TimeText.delayMark(seconds: -29) == nil)
+    let late = try #require(TimeText.delayMark(seconds: 180))
+    #expect(late.text == "+3" && late.minutes == 3)
+    let early = try #require(TimeText.delayMark(seconds: -125))
+    #expect(early.text == "\u{2212}2" && early.minutes == -2)
+    #expect(try #require(TimeText.delayMark(seconds: 31)).text == "+1")
+  }
 }

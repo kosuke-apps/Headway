@@ -1,6 +1,7 @@
 import CoreLocation
 import Foundation
 import HeadwayCore
+import os
 import Observation
 
 /// What the app is for at the moment. The map stays alive underneath the other two.
@@ -10,6 +11,12 @@ enum AppMode: String, CaseIterable, Identifiable {
 }
 
 /// What the sheet over the map is showing.
+/// Where "Back" on the chip over the map leads: the list the map was opened from.
+enum FocusReturn: Equatable {
+  case mode(AppMode)
+  case sheet(ActiveSheet)
+}
+
 enum ActiveSheet: Identifiable, Equatable {
   case stop(String)
   case bus(String)  // vehicle id
@@ -90,6 +97,11 @@ final class AppModel {
   private(set) var vehiclePatterns: [String: String] = [:]
   /// The way each live bus's trip runs, as a letter for the marker ("E" for Eastbound); loops have none.
   private(set) var vehicleHeadings: [String: String] = [:]
+  /// The destination ("2-EPIC CAMPUS") of each live bus's trip.
+  private(set) var vehicleHeadsigns: [String: String] = [:]
+  /// The screen to go back to from the map's focus chip, when the focus was started from a list (an alert's "Show on
+  /// map", the routes list).
+  private(set) var focusReturn: FocusReturn?
   /// Scheduled service of each route and direction (`outlookKey`), for "no buses right now" versus "not running today".
   private(set) var outlooks: [String: ServiceOutlook] = [:]
   /// True when the board shows service after the next three hours because nothing else is coming.
@@ -252,8 +264,10 @@ final class AppModel {
     restartPolling()
     Task { await loadPunctuality() }
     // The saved copy of the map data shows every route right away; the timetable is parsed behind it.
+    let began = CFAbsoluteTimeGetCurrent()
     if let saved = await Task.detached(priority: .userInitiated, operation: { OverlayStore.load() }).value, overlay == nil {
       overlay = saved
+      launchLog.info("saved map data read in \(Int((CFAbsoluteTimeGetCurrent() - began) * 1000)) ms")
     }
     await loadSchedule()
   }
@@ -294,6 +308,7 @@ final class AppModel {
       if !focus.isActive {
         var next = MapFocus.route(vehicle.routeID, direction: vehicleDirections[vehicle.id])
         next.fromBus = true
+        focusReturn = nil
         focus = next
       }
     }
@@ -400,6 +415,7 @@ final class AppModel {
   /// does not move the camera.
   func focusRoute(_ id: String, direction: Int? = nil, fit: Bool = true) {
     routeChoices = []
+    focusReturn = returnTarget()
     focus = .route(id, direction: direction)
     if mode != .map { mode = .map }
     if fit { fitToFocus() }
@@ -422,14 +438,63 @@ final class AppModel {
 
   func clearFocus() {
     focus = MapFocus()
+    focusReturn = nil
     routeChoices = []
+  }
+
+  /// The list the map is being opened from, to come back to.
+  private func returnTarget() -> FocusReturn? {
+    if mode != .map { return .mode(mode) }
+    if sheet == .routes { return .sheet(.routes) }
+    return nil
+  }
+
+  /// Lets go of the focus and goes back to where it was started.
+  func returnFromFocus() {
+    let target = focusReturn
+    clearFocus()
+    switch target {
+    case .mode(let mode)?: self.mode = mode
+    case .sheet(let sheet)?: self.sheet = sheet
+    case nil: break
+    }
   }
 
   /// Changes the direction of the route in focus (nil for both).
   func setFocusDirection(_ direction: Int?) {
     guard focus.routes.count == 1 else { return }
     focus.direction = direction
+    focus.headsign = nil
+    focus.headsignStops = []
     focus.fromBus = false
+  }
+
+  /// Narrows the route in focus to one of its destinations, or back to the whole direction when nil.
+  func setFocusPattern(_ pattern: RoutePattern?) {
+    guard focus.routes.count == 1 else { return }
+    focus.headsign = pattern?.headsign
+    focus.headsignStops = Set(pattern?.stops ?? [])
+    if let pattern { focus.direction = pattern.direction }
+    focus.fromBus = false
+  }
+
+  /// The destinations of a route that the map can show on their own (more than one in the direction).
+  func patterns(of route: String, direction: Int) -> [RoutePattern] {
+    let all = overlay?.network.patterns(of: route, direction: direction) ?? []
+    return all.count > 1 ? all : []
+  }
+
+  /// "Westbound": the way a direction of a route runs, in the app's language.
+  func directionName(route: String, direction: Int) -> String {
+    let name = variants(of: route).first { $0.direction == direction }?.directionName ?? ""
+    return name.isEmpty ? String(localized: "Direction \(direction + 1)") : Self.compassName(name)
+  }
+
+  /// "D2 · Epic Campus": a destination with its route and pattern number, as the buses show them.
+  func patternTitle(_ pattern: RoutePattern) -> String {
+    let name = route(pattern.route)?.shortName ?? pattern.route
+    let place = pattern.destination.prettyHeadsign
+    return pattern.number.map { "\(name)\($0) · \(place)" } ?? place
   }
 
   /// "Show on map" for an alert: its routes, and the stops its text names, ringed.
@@ -440,6 +505,7 @@ final class AppModel {
     next.highlightedStops = alertStops(alert)
     next.label = alert.header
     next.isAlert = true
+    focusReturn = returnTarget()
     focus = next
     sheet = nil
     mode = .map
@@ -453,6 +519,7 @@ final class AppModel {
     var next = MapFocus(routes: routes)
     next.highlightedBuses = buses
     next.label = label
+    focusReturn = returnTarget()
     focus = next
     sheet = nil
     mode = .map
@@ -610,6 +677,7 @@ final class AppModel {
     vehicleDirections = directions(of: vehicles)
     vehiclePatterns = patterns(of: vehicles)
     vehicleHeadings = headings(of: vehicles)
+    vehicleHeadsigns = headsigns(of: vehicles)
     refreshOutlooks()
     refreshArrivals()
   }
@@ -659,6 +727,13 @@ final class AppModel {
     case "outbound": "Out"
     default: nil
     }
+  }
+
+  private func headsigns(of vehicles: [VehicleSample]) -> [String: String] {
+    guard let schedule else { return [:] }
+    var result: [String: String] = [:]
+    for vehicle in vehicles { if let trip = schedule.trips[vehicle.tripID], !trip.headsign.isEmpty { result[vehicle.id] = trip.headsign } }
+    return result
   }
 
   private func headings(of vehicles: [VehicleSample]) -> [String: String] {
@@ -768,6 +843,7 @@ final class AppModel {
           vehicleDirections = directions(of: snapshot.vehicles)
           vehiclePatterns = patterns(of: snapshot.vehicles)
           vehicleHeadings = headings(of: snapshot.vehicles)
+          vehicleHeadsigns = headsigns(of: snapshot.vehicles)
           offRouteVehicleIDs = computeOffRoute(snapshot.vehicles)
           unchanged = 0
           lastChange = Date()

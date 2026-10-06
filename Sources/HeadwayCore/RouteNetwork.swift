@@ -22,6 +22,39 @@ public struct RouteVariant: Sendable, Codable, Hashable {
   }
 }
 
+/// One destination of a route in one direction ("2-EPIC CAMPUS" going west) and the stops its trips serve.
+public struct RoutePattern: Sendable, Codable, Hashable, Identifiable {
+  public let route: String
+  public let direction: Int
+  /// The headsign as the feed writes it, which is also what a bus's trip carries.
+  public let headsign: String
+  public let trips: Int
+  public let stops: [String]
+
+  public var id: String { "\(route)|\(direction)|\(headsign)" }
+
+  public init(route: String, direction: Int, headsign: String, trips: Int, stops: [String]) {
+    self.route = route
+    self.direction = direction
+    self.headsign = headsign
+    self.trips = trips
+    self.stops = stops
+  }
+
+  /// "2" for "2-EPIC CAMPUS": the number the city puts in front of a destination to tell the patterns of a route apart.
+  public var number: String? {
+    guard let dash = headsign.firstIndex(of: "-"), dash != headsign.startIndex else { return nil }
+    let head = headsign[..<dash]
+    return head.allSatisfy(\.isNumber) ? String(head) : nil
+  }
+
+  /// The destination without its number ("EPIC CAMPUS").
+  public var destination: String {
+    guard number != nil, let dash = headsign.firstIndex(of: "-") else { return headsign }
+    return String(headsign[headsign.index(after: dash)...])
+  }
+}
+
 /// Which routes serve which stops, and which stops each direction of each route serves.
 public struct RouteNetwork: Sendable, Codable, Equatable {
   /// Route ids serving each stop, ordered like the route list.
@@ -29,13 +62,27 @@ public struct RouteNetwork: Sendable, Codable, Equatable {
   public let variants: [RouteVariant]
   /// Stop ids served by a route in one direction, keyed by `key(route:direction:)`.
   public let stopsByDirection: [String: [String]]
+  /// Each destination of each route in each direction, most trips first.
+  public let patterns: [RoutePattern]
 
   public static func key(route: String, direction: Int) -> String { "\(route)|\(direction)" }
 
-  public init(routesByStop: [String: [String]], variants: [RouteVariant], stopsByDirection: [String: [String]]) {
+  public init(routesByStop: [String: [String]], variants: [RouteVariant], stopsByDirection: [String: [String]], patterns: [RoutePattern] = []) {
     self.routesByStop = routesByStop
     self.variants = variants
     self.stopsByDirection = stopsByDirection
+    self.patterns = patterns
+  }
+
+  // A copy saved by an older version has no patterns: it still decodes, and is drawn until a new one is computed.
+  private enum CodingKeys: String, CodingKey { case routesByStop, variants, stopsByDirection, patterns }
+
+  public init(from decoder: Decoder) throws {
+    let c = try decoder.container(keyedBy: CodingKeys.self)
+    routesByStop = try c.decode([String: [String]].self, forKey: .routesByStop)
+    variants = try c.decode([RouteVariant].self, forKey: .variants)
+    stopsByDirection = try c.decode([String: [String]].self, forKey: .stopsByDirection)
+    patterns = try c.decodeIfPresent([RoutePattern].self, forKey: .patterns) ?? []
   }
 
   public init(schedule: Schedule) {
@@ -55,6 +102,7 @@ public struct RouteNetwork: Sendable, Codable, Equatable {
       var stops: Set<String> = []
     }
     var groups: [String: Group] = [:]
+    var patternGroups: [String: Group] = [:]
     for trip in schedule.trips.values {
       let key = Self.key(route: trip.routeID, direction: trip.directionID)
       var group = groups[key] ?? Group()
@@ -63,6 +111,13 @@ public struct RouteNetwork: Sendable, Codable, Equatable {
       if !trip.directionName.isEmpty { group.names[trip.directionName, default: 0] += 1 }
       for time in schedule.stopTimes[trip.id] ?? [] { group.stops.insert(time.stopID) }
       groups[key] = group
+      if !trip.headsign.isEmpty {
+        let patternKey = "\(key)|\(trip.headsign)"
+        var pattern = patternGroups[patternKey] ?? Group()
+        pattern.trips += 1
+        for time in schedule.stopTimes[trip.id] ?? [] { pattern.stops.insert(time.stopID) }
+        patternGroups[patternKey] = pattern
+      }
     }
 
     var variants: [RouteVariant] = []
@@ -83,10 +138,26 @@ public struct RouteNetwork: Sendable, Codable, Equatable {
       let a = order($0.route), b = order($1.route)
       return a != b ? a < b : $0.direction < $1.direction
     }
-    self.init(routesByStop: byStop, variants: variants, stopsByDirection: stops)
+    var patterns: [RoutePattern] = []
+    for (key, group) in patternGroups {
+      let parts = key.split(separator: "|", maxSplits: 2, omittingEmptySubsequences: false)
+      guard parts.count == 3, let direction = Int(parts[1]) else { continue }
+      patterns.append(RoutePattern(route: String(parts[0]), direction: direction, headsign: String(parts[2]), trips: group.trips, stops: group.stops.sorted()))
+    }
+    patterns.sort {
+      let a = order($0.route), b = order($1.route)
+      if a != b { return a < b }
+      return ($0.direction, -$0.trips, $0.headsign) < ($1.direction, -$1.trips, $1.headsign)
+    }
+    self.init(routesByStop: byStop, variants: variants, stopsByDirection: stops, patterns: patterns)
   }
 
   public func variants(of route: String) -> [RouteVariant] { variants.filter { $0.route == route } }
+
+  /// The destinations of a route (in one direction, or both), most trips first.
+  public func patterns(of route: String, direction: Int? = nil) -> [RoutePattern] {
+    patterns.filter { $0.route == route && (direction == nil || $0.direction == direction) }
+  }
 
   public func stops(route: String, direction: Int?) -> Set<String> {
     if let direction { return Set(stopsByDirection[Self.key(route: route, direction: direction)] ?? []) }

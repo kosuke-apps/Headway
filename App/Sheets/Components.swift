@@ -30,10 +30,12 @@ struct RouteBadge: View {
   }
 }
 
-/// A small dot-and-label that says whether a time is live or only from the timetable.
+/// A small dot-and-label that says whether a time is live or only from the timetable. With `scheduled` (the timetable's
+/// own time, already formatted) a live bus also says what the timetable promised, so the live time never hides it.
 struct LiveStatus: View {
   let arrival: Arrival
   let showDelay: Bool
+  var scheduled: String? = nil
 
   var body: some View {
     HStack(spacing: 4) {
@@ -41,7 +43,10 @@ struct LiveStatus: View {
         Image(systemName: "dot.radiowaves.left.and.right")
           .foregroundStyle(.green)
           .symbolRenderingMode(.hierarchical)
-        Text(liveText).foregroundStyle(delayColor)
+        Text(liveText).foregroundStyle(delayColor).lineLimit(1)
+        if let scheduled, showDelay {
+          Text("· Scheduled \(scheduled)").foregroundStyle(.secondary).lineLimit(1)
+        }
       } else {
         Image(systemName: "clock").foregroundStyle(.secondary)
         Text("Scheduled").foregroundStyle(.secondary)
@@ -60,7 +65,45 @@ struct LiveStatus: View {
     guard showDelay, let delay = arrival.delay else { return .secondary }
     if delay > 300 { return .red }
     if delay > 90 { return .orange }
+    if delay < -90 { return .blue }  // ahead of the timetable: the bus may be gone before its time
     return .secondary
+  }
+}
+
+/// Lays views out in rows, moving to the next row when one does not fit: a few chips that would otherwise be cut off.
+struct FlowLayout: Layout {
+  var spacing: CGFloat = 8
+
+  func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+    let width = proposal.width ?? .infinity
+    var x: CGFloat = 0, y: CGFloat = 0, rowHeight: CGFloat = 0, widest: CGFloat = 0
+    for view in subviews {
+      let size = view.sizeThatFits(.unspecified)
+      if x > 0, x + size.width > width {
+        x = 0
+        y += rowHeight + spacing
+        rowHeight = 0
+      }
+      x += size.width + spacing
+      rowHeight = max(rowHeight, size.height)
+      widest = max(widest, x - spacing)
+    }
+    return CGSize(width: widest, height: y + rowHeight)
+  }
+
+  func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+    var x = bounds.minX, y = bounds.minY, rowHeight: CGFloat = 0
+    for view in subviews {
+      let size = view.sizeThatFits(.unspecified)
+      if x > bounds.minX, x + size.width > bounds.maxX {
+        x = bounds.minX
+        y += rowHeight + spacing
+        rowHeight = 0
+      }
+      view.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
+      x += size.width + spacing
+      rowHeight = max(rowHeight, size.height)
+    }
   }
 }
 

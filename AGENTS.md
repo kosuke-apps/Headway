@@ -46,12 +46,24 @@ The author's general workspace rules (outside this repository) apply too; this f
     and the zoom curve must sit inside the curve's stops or MapLibre raises an exception). A focused route uses the
     per-direction shapes instead (`kind` "d" versus "o"). `feedanalysis overview <zip> <out.geojson>` exports the layout
     to look at in a browser. Raise `MapOverlayData.currentVersion` when this changes; an older saved copy is still drawn
-    until the new one is computed (about 0.4 s in a Release build on a Mac, once per timetable).
+    until the new one is computed (about 0.4 s in a Release build on a Mac, once per timetable). Every piece is a feature
+    the map reads and draws at launch, so keep the set small: slides between lanes go in steps of an eighth of a lane
+    and one route (a 60 m slide is a few pieces, not 24), and every line is thinned to 1 m (`RouteBundler.simplified`).
+    That took the saved copy from 13 MB (90 000 pieces) to 3 MB (23 000) and the launch from 2.5 s to 0.5 s on a Mac;
+    `RouteBundlingTests` fails above 15 000 pieces per set. The timings are in the log:
+    `xcrun simctl spawn booted log show --info --last 2m --predicate 'subsystem == "dev.kosuke.headway"'` (`launchLog`).
   - Crowding and detail: streets with more than three routes draw thinner lines (`crowd`, down to half; the feature's `k`),
     and from zoom 16 a second set (`detail`, `RouteBundler.overview(merge: 10, snap: 8)`) separates the two directions where
     they run apart; the sets cross-fade at zoom 16 (`a0`/`a1`). A focused route uses `directionLines`, which merge the
     variants of a direction (D1, D2, Verona, Epic Campus) into one line. Line widths, lane gaps, bus markers and journey
     lines all shrink with zoom (`MapLayers.lineZooms`, `busZooms`).
+  - Destinations: `RouteNetwork.patterns` (one per route, direction and headsign, with its stops) and
+    `MapOverlayData.patternLines` (their lines, only for directions that have several) let the focus chip narrow a route
+    to one destination (`MapFocus.headsign`; buses are matched by the headsign of their trip). `AppModel.focusReturn`
+    remembers the list a focus was started from (the service info screen, the routes sheet) for the chip's back button.
+  - Times: with `showScheduledTimes` (Settings > Times) the stop board and a bus's next stops show the timetable's time and
+    how far the live time is from it (`LiveStatus`, `BusSheet`), and the full timetable marks tracked buses with
+    `TimeText.delayMark` (+3 / −2). Nothing replaces a timetable time.
   - Bus markers: the route name and the pattern number from the headsign ("D2") inside, the ring white for trip direction 1
     and black for 0 (mostly east/north and west/south), and a small letter beside it from the feed's `trip_direction_name`
     ("E", "W", "N", "S", "In", "Out"; loops have none). The feed's own `bearing` is not used: a bus changes it at every turn,

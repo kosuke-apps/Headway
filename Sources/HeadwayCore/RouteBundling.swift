@@ -369,11 +369,14 @@ public enum RouteBundler {
           drawn.append((piece.from, piece.to, laneStart[k], crowdStart[k]))
           continue
         }
+        // A slide goes in steps of an eighth of a lane and one route, so that neighbouring small steps join into one
+        // piece: without that a 60 m slide is 24 pieces of 2.5 m, and a city of them is 90 000 pieces to draw.
         for part in 0..<split {
           let from = lerp(piece.from, piece.to, Double(part) / Double(split))
           let to = lerp(piece.from, piece.to, Double(part + 1) / Double(split))
           let t = (Double(part) + 0.5) / Double(split)
-          drawn.append((from, to, laneStart[k] + (laneEnd[k] - laneStart[k]) * t, crowdStart[k] + (crowdEnd[k] - crowdStart[k]) * t))
+          let lane = ((laneStart[k] + (laneEnd[k] - laneStart[k]) * t) * 8).rounded() / 8
+          drawn.append((from, to, lane, (crowdStart[k] + (crowdEnd[k] - crowdStart[k]) * t).rounded()))
         }
       }
 
@@ -625,6 +628,32 @@ public enum RouteBundler {
     guard lengthSquared > 0 else { return distance(p, a) }
     let t = max(0, min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / lengthSquared))
     return distance(p, Point(x: a.x + t * dx, y: a.y + t * dy))
+  }
+
+  /// Drops the points that lie within `tolerance` metres of the line between the points kept (Douglas-Peucker), keeping
+  /// both ends. Shapes have a point every few metres, most of them on straight streets.
+  public static func simplified(_ coordinates: [Coordinate], tolerance: Double) -> [Coordinate] {
+    guard coordinates.count > 2 else { return coordinates }
+    let frame = Frame(latitude: coordinates[0].latitude)
+    let points = coordinates.map(frame.point)
+    var keep = [Bool](repeating: false, count: points.count)
+    keep[0] = true
+    keep[points.count - 1] = true
+    var work = [(0, points.count - 1)]
+    while let (first, last) = work.popLast() {
+      guard last - first > 1 else { continue }
+      var far = first, farthest = 0.0
+      for index in (first + 1)..<last {
+        let d = distance(from: points[index], toSegment: points[first], points[last])
+        if d > farthest { (far, farthest) = (index, d) }
+      }
+      if farthest > tolerance {
+        keep[far] = true
+        work.append((first, far))
+        work.append((far, last))
+      }
+    }
+    return zip(coordinates, keep).filter(\.1).map(\.0)
   }
 
   /// Removes short excursions that go out and come back, such as a shape that steps aside to a stop.

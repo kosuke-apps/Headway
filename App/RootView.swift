@@ -21,7 +21,7 @@ struct RootView: View {
           if case .failed(let message) = model.phase { FailureBanner(message: message) }
         }
         .padding(.top, 8)
-        .padding(.horizontal, 64)
+        .padding(.horizontal, 60)
 
         MenuButton()
           .frame(maxWidth: .infinity, alignment: .leading)
@@ -140,7 +140,8 @@ private struct StatusPill: View {
       let late = model.liveFailing || (age ?? 0) > 90
       HStack(spacing: 8) {
         Circle().fill(model.lastLiveUpdate == nil ? Color.gray : (late ? Color.orange : Color.green)).frame(width: 8, height: 8)
-        Text(text(age: age, late: late)).font(.footnote.weight(.medium)).monospacedDigit()
+        // One line whatever the numbers are: the text shrinks a little rather than wrapping.
+        Text(text(age: age, late: late)).font(.footnote.weight(.medium)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.75)
       }
       .padding(.horizontal, 12)
       .padding(.vertical, 7)
@@ -167,13 +168,13 @@ private struct EdgeSwipeArea: View {
 
   var body: some View {
     Color.clear
-      .frame(width: 16)
+      .frame(width: 22)
       .frame(maxHeight: .infinity)
       .contentShape(Rectangle())
       .gesture(
-        DragGesture(minimumDistance: 10)
+        DragGesture(minimumDistance: 8)
           .onEnded { value in
-            if value.translation.width > 50, abs(value.translation.height) < value.translation.width {
+            if value.translation.width > 40, abs(value.translation.height) < value.translation.width {
               withAnimation(.snappy(duration: 0.28)) { model.menuOpen = true }
             }
           }
@@ -262,13 +263,55 @@ private struct FocusChip: View {
   var body: some View {
     let focus = model.focus
     let single = focus.routes.count == 1 ? focus.routes.first : nil
+    // A route with two directions or several destinations can be narrowed from the chip.
+    let choices = single != nil && focus.label == nil && model.variants(of: single!).count > 1
+    HStack(spacing: 8) {
+      if model.focusReturn != nil {
+        Button { model.returnFromFocus() } label: {
+          Image(systemName: "chevron.backward.circle.fill").font(.title3).symbolRenderingMode(.hierarchical).foregroundStyle(.blue)
+            .frame(width: 30, height: 36)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text("Back"))
+      }
+      if choices, let single {
+        // The whole chip opens the choices, not only the small arrows.
+        Menu { choiceMenu(route: single, focus: focus) } label: {
+          HStack(spacing: 8) {
+            label(focus, single: single)
+            Image(systemName: "chevron.up.chevron.down").font(.caption2.weight(.semibold)).foregroundStyle(.blue)
+          }
+          .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint(Text("Choose a direction or destination"))
+      } else {
+        label(focus, single: single)
+      }
+      Button { model.clearFocus() } label: {
+        Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary).frame(width: 30, height: 36).contentShape(Rectangle())
+      }
+      .buttonStyle(.plain)
+      .accessibilityLabel(Text("Show all routes"))
+    }
+    .padding(.horizontal, 12)
+    .padding(.vertical, 2)
+    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+  }
+
+  private func label(_ focus: MapFocus, single: String?) -> some View {
     HStack(spacing: 8) {
       if let single { RouteBadge(routeID: single, compact: true) }
       VStack(alignment: .leading, spacing: 1) {
-        Text(title(focus, single: single)).font(.footnote.weight(.medium)).lineLimit(1)
+        Text(title(focus, single: single)).font(.footnote.weight(.medium)).foregroundStyle(.primary).lineLimit(1)
         if let single, focus.label == nil {
-          let status = model.liveStatus(route: single, direction: focus.direction)
-          Text(status.text).font(.caption2).foregroundStyle(status.isRunning ? Color.green : Color.secondary).lineLimit(2)
+          if focus.headsign != nil, let direction = focus.direction {
+            Text(model.directionName(route: single, direction: direction)).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+          } else {
+            let status = model.liveStatus(route: single, direction: focus.direction)
+            Text(status.text).font(.caption2).foregroundStyle(status.isRunning ? Color.green : Color.secondary).lineLimit(2)
+          }
         }
         if focus.isAlert {
           // The dashes are the only sign of a detour on the map: say what they mean, and what is not known.
@@ -276,33 +319,45 @@ private struct FocusChip: View {
             .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
       }
-      if let single, focus.label == nil, model.variants(of: single).count > 1 {
-        Menu {
-          Button { model.setFocusDirection(nil) } label: { Label("Both directions", systemImage: focus.direction == nil ? "checkmark" : "arrow.left.arrow.right") }
-          ForEach(model.variants(of: single), id: \.direction) { variant in
-            Button { model.setFocusDirection(variant.direction) } label: {
-              Label(model.directionTitle(route: single, direction: variant.direction), systemImage: focus.direction == variant.direction ? "checkmark" : model.directionSymbol(route: single, direction: variant.direction))
+    }
+  }
+
+  /// Both directions, then each direction with its destinations underneath (D1, D2, ...).
+  @ViewBuilder private func choiceMenu(route: String, focus: MapFocus) -> some View {
+    Button { model.setFocusDirection(nil) } label: {
+      Label("Both directions", systemImage: focus.direction == nil ? "checkmark" : "arrow.left.arrow.right")
+    }
+    ForEach(model.variants(of: route), id: \.direction) { variant in
+      let patterns = model.patterns(of: route, direction: variant.direction)
+      let wholeDirection = focus.direction == variant.direction && focus.headsign == nil
+      Section(model.directionName(route: route, direction: variant.direction)) {
+        Button { model.setFocusDirection(variant.direction) } label: {
+          Label(
+            patterns.isEmpty ? model.directionTitle(route: route, direction: variant.direction) : String(localized: "All destinations"),
+            systemImage: wholeDirection ? "checkmark" : model.directionSymbol(route: route, direction: variant.direction))
+        }
+        ForEach(patterns) { pattern in
+          Button { model.setFocusPattern(pattern) } label: {
+            if focus.direction == pattern.direction, focus.headsign == pattern.headsign {
+              Label(model.patternTitle(pattern), systemImage: "checkmark")
+            } else {
+              Text(model.patternTitle(pattern))
             }
           }
-        } label: {
-          Image(systemName: "arrow.left.arrow.right.circle.fill").foregroundStyle(.blue)
         }
-        .accessibilityLabel(Text("Change direction"))
       }
-      Button { model.clearFocus() } label: {
-        Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
-      }
-      .accessibilityLabel(Text("Show all routes"))
     }
-    .padding(.horizontal, 12)
-    .padding(.vertical, 6)
-    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
   }
 
   private func title(_ focus: MapFocus, single: String?) -> String {
     if let label = focus.label { return label }
     guard let single else { return String(localized: "Showing only these routes") }
-    if let direction = focus.direction { return model.directionTitle(route: single, direction: direction) }
+    if let direction = focus.direction {
+      if let headsign = focus.headsign, let pattern = model.patterns(of: single, direction: direction).first(where: { $0.headsign == headsign }) {
+        return model.patternTitle(pattern)
+      }
+      return model.directionTitle(route: single, direction: direction)
+    }
     return String(localized: "Both directions")
   }
 }

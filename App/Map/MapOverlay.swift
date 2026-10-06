@@ -10,7 +10,7 @@ import HeadwayCore
 struct MapOverlayData: Codable, Equatable, Sendable {
   /// Raise this whenever what the overlay holds, or how it is computed (for example the bundling of lanes), changes: a
   /// saved copy of an older version is then ignored and rebuilt from the timetable.
-  static let currentVersion = 10
+  static let currentVersion = 12
 
   struct RouteInfo: Codable, Equatable, Sendable {
     var id: String
@@ -30,6 +30,15 @@ struct MapOverlayData: Codable, Equatable, Sendable {
     var direction: Int
     var lane: Double = 0
     var crowd: Double = 1
+    var latitudes: [Double]
+    var longitudes: [Double]
+  }
+
+  /// The line of one destination of a route ("2-EPIC CAMPUS"), drawn when only that destination is looked at.
+  struct PatternLine: Codable, Equatable, Sendable {
+    var route: String
+    var direction: Int
+    var headsign: String
     var latitudes: [Double]
     var longitudes: [Double]
   }
@@ -54,15 +63,19 @@ struct MapOverlayData: Codable, Equatable, Sendable {
   /// The same with the two directions of a route kept apart wherever they are more than about 10 m from each other:
   /// drawn when zoomed in far enough for them to be told apart.
   var detail: [Line] = []
+  /// The lines of the destinations of routes that have more than one in a direction (nil in a copy saved by an older
+  /// version).
+  var patternLines: [PatternLine]?
   var stops: [StopInfo]
   var network: RouteNetwork
 
-  init(feedVersion: String, routes: [RouteInfo], lines: [Line], overview: [Line] = [], detail: [Line] = [], stops: [StopInfo], network: RouteNetwork) {
+  init(feedVersion: String, routes: [RouteInfo], lines: [Line], overview: [Line] = [], detail: [Line] = [], patternLines: [PatternLine]? = nil, stops: [StopInfo], network: RouteNetwork) {
     self.feedVersion = feedVersion
     self.routes = routes
     self.lines = lines
     self.overview = overview
     self.detail = detail
+    self.patternLines = patternLines
     self.stops = stops
     self.network = network
   }
@@ -78,17 +91,42 @@ struct MapOverlayData: Codable, Equatable, Sendable {
       guard let trip = tripOfShape[shapeID], let route = schedule.routes[trip.routeID], points.count > 1 else { return nil }
       return BundleInput(route: route.id, order: route.sortOrder, direction: trip.directionID, shapeID: shapeID, points: points)
     }
+    // Shapes have a point every few metres; a point within a metre of the line between its neighbours changes nothing
+    // on screen, and the map has to read and draw every one at launch.
+    func slim(_ coordinates: [Coordinate]) -> [Coordinate] { RouteBundler.simplified(coordinates, tolerance: 1) }
     lines = RouteBundler.directionLines(inputs).map {
-      Line(route: $0.route, direction: $0.direction, latitudes: $0.coordinates.map(\.latitude), longitudes: $0.coordinates.map(\.longitude))
+      let coordinates = slim($0.coordinates)
+      return Line(route: $0.route, direction: $0.direction, latitudes: coordinates.map(\.latitude), longitudes: coordinates.map(\.longitude))
     }
     .sorted { ($0.route, $0.direction, $0.latitudes.count) < ($1.route, $1.direction, $1.latitudes.count) }
     func bundle(_ lines: [BundledLine]) -> [Line] {
       lines.map {
-        Line(route: $0.route, direction: -1, lane: $0.lane, crowd: $0.crowd, latitudes: $0.coordinates.map(\.latitude), longitudes: $0.coordinates.map(\.longitude))
+        let coordinates = slim($0.coordinates)
+        return Line(route: $0.route, direction: -1, lane: $0.lane, crowd: $0.crowd, latitudes: coordinates.map(\.latitude), longitudes: coordinates.map(\.longitude))
       }
     }
     overview = bundle(RouteBundler.overview(inputs))
     detail = bundle(RouteBundler.overview(inputs, merge: 10, snap: 8))
+    // One line per destination, for the routes that have several in a direction.
+    var shapesOfPattern: [String: Set<String>] = [:]
+    for trip in schedule.trips.values where !trip.headsign.isEmpty {
+      shapesOfPattern["\(trip.routeID)|\(trip.directionID)|\(trip.headsign)", default: []].insert(trip.shapeID)
+    }
+    let several = Set(Dictionary(grouping: network.patterns) { "\($0.route)|\($0.direction)" }.filter { $0.value.count > 1 }.keys)
+    var patternLines: [PatternLine] = []
+    for pattern in network.patterns where several.contains("\(pattern.route)|\(pattern.direction)") {
+      guard let route = schedule.routes[pattern.route] else { continue }
+      let shapes = (shapesOfPattern[pattern.id] ?? []).sorted().compactMap { id -> BundleInput? in
+        guard let points = schedule.shapes[id], points.count > 1 else { return nil }
+        return BundleInput(route: route.id, order: route.sortOrder, direction: pattern.direction, shapeID: id, points: points)
+      }
+      for line in RouteBundler.directionLines(shapes) {
+        let coordinates = slim(line.coordinates)
+        patternLines.append(
+          PatternLine(route: pattern.route, direction: pattern.direction, headsign: pattern.headsign, latitudes: coordinates.map(\.latitude), longitudes: coordinates.map(\.longitude)))
+      }
+    }
+    self.patternLines = patternLines
     stops = schedule.stops.values.sorted { $0.id < $1.id }.map {
       StopInfo(id: $0.id, name: $0.name, code: $0.code, latitude: $0.latitude, longitude: $0.longitude, facing: $0.facing)
     }

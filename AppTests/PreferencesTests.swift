@@ -96,4 +96,15 @@ import Testing
     #expect(settings.values.recentStops.first == "5")
     #expect(Set(settings.values.recentStops).count == 8)
   }
+
+  @Test func timetableTimesAreShownWithLiveOnesUnlessTurnedOff() throws {
+    #expect(Preferences().showScheduledTimes)
+    // A copy saved before the setting existed keeps working and gets the default.
+    let old = try JSONDecoder().decode(Preferences.self, from: Data(#"{"showDelayDetails": true}"#.utf8))
+    #expect(old.showScheduledTimes)
+    var off = Preferences()
+    off.showScheduledTimes = false
+    let back = try JSONDecoder().decode(Preferences.self, from: JSONEncoder().encode(off))
+    #expect(!back.showScheduledTimes)
+  }
 }

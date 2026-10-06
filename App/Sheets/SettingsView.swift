@@ -86,7 +86,7 @@ struct SettingsView: View {
           Text("The city's feed is rebuilt every 30 seconds and each bus reports every 30 seconds, so a position is about 25 seconds old when you see it. Automatic refresh asks right after each rebuild. Estimating moves each bus along its route at its last speed; a veiled bus has not reported for over a minute. Predicted arrival times are fetched only while a stop or bus is open, the service board or planner is showing, or you are watching routes.")
         }
 
-        Section("Times") {
+        Section {
           Picker("Clock", selection: $settings.values.clockFormat) {
             Text("System").tag(ClockFormat.system)
             Text("12-hour").tag(ClockFormat.twelveHour)
@@ -97,6 +97,12 @@ struct SettingsView: View {
             Text("Clock times").tag(ArrivalStyle.clock)
           }
           Toggle("Show how late or early", isOn: $settings.values.showDelayDetails)
+          Toggle("Show timetable times too", isOn: $settings.values.showScheduledTimes)
+            .disabled(!settings.values.showDelayDetails)
+        } header: {
+          Text("Times")
+        } footer: {
+          Text("With this on, a live bus shows its timetable time next to how late or early it is, and the full timetable marks live buses with the minutes they are ahead or behind. Timetable times are never replaced.")
         }
 
         Section("Behavior") {

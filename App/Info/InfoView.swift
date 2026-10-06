@@ -7,10 +7,11 @@ struct InfoView: View {
 
   var body: some View {
     NavigationStack {
+      ScrollViewReader { proxy in
       List {
-        summary
+        summary(proxy)
         favorites
-        alertsSection
+        alertsSection.id("alerts")
         delaysSection
         cancellationsSection
         silentSection
@@ -23,13 +24,14 @@ struct InfoView: View {
         model.refreshStatus()
         try? await Task.sleep(for: .milliseconds(400))
       }
+      }
     }
     .onAppear { model.refreshStatus() }
   }
 
   // MARK: Summary
 
-  private var summary: some View {
+  private func summary(_ proxy: ScrollViewProxy) -> some View {
     Section {
       let status = model.status
       let late = status?.routes.filter { $0.lateBuses > 0 }.count ?? 0
@@ -41,16 +43,24 @@ struct InfoView: View {
           Spacer()
           LiveAgeText()
         }
-        HStack(spacing: 8) {
-          SummaryChip(symbol: "exclamationmark.triangle.fill", tint: .orange, text: String(localized: "\(model.visibleActiveAlerts.count) alerts"))
-          Button { if late > 0 { model.focusDelays() } } label: {
-            SummaryChip(symbol: "clock.badge.exclamationmark", tint: late > 0 ? .red : .green,
-              text: late > 0 ? String(localized: "\(late) routes late") : String(localized: "No late routes"))
+        // Each chip with something behind it is a button (it has a chevron): alerts jump to the list below, late and
+        // early buses are shown on the map.
+        FlowLayout(spacing: 8) {
+          let alerts = model.visibleActiveAlerts.count
+          Button { withAnimation { proxy.scrollTo("alerts", anchor: .top) } } label: {
+            SummaryChip(symbol: "exclamationmark.triangle.fill", tint: .orange, text: String(localized: "\(alerts) alerts"), tappable: alerts > 0)
           }
           .buttonStyle(.plain)
+          .disabled(alerts == 0)
+          Button { if late > 0 { model.focusDelays() } } label: {
+            SummaryChip(symbol: "clock.badge.exclamationmark", tint: late > 0 ? .red : .green,
+              text: late > 0 ? String(localized: "\(late) routes late") : String(localized: "No late routes"), tappable: late > 0)
+          }
+          .buttonStyle(.plain)
+          .disabled(late == 0)
           if early > 0 {
             Button { model.focusDelays(late: false, early: true) } label: {
-              SummaryChip(symbol: "clock.arrow.circlepath", tint: .blue, text: String(localized: "\(early) buses early"))
+              SummaryChip(symbol: "clock.arrow.circlepath", tint: .blue, text: String(localized: "\(early) buses early"), tappable: true)
             }
             .buttonStyle(.plain)
           }
@@ -180,11 +190,18 @@ private struct SummaryChip: View {
   let symbol: String
   let tint: Color
   let text: String
+  /// True when tapping the chip does something: it then ends with a chevron.
+  var tappable = false
 
   var body: some View {
-    Label { Text(text).font(.footnote.weight(.medium)) } icon: { Image(systemName: symbol).foregroundStyle(tint) }
-      .padding(.horizontal, 10).padding(.vertical, 6)
-      .background(tint.opacity(0.12), in: Capsule())
+    HStack(spacing: 5) {
+      Image(systemName: symbol).font(.footnote).foregroundStyle(tint)
+      Text(text).font(.footnote.weight(.medium)).lineLimit(1).fixedSize()
+      if tappable { Image(systemName: "chevron.right").font(.caption2.weight(.bold)).foregroundStyle(tint) }
+    }
+    .padding(.horizontal, 10).padding(.vertical, 6)
+    .background(tint.opacity(0.12), in: Capsule())
+    .contentShape(Capsule())
   }
 }
 

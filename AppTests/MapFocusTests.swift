@@ -80,6 +80,36 @@ import UIKit
   }
 }
 
+@Suite struct OverlayPatternTests {
+  private func data(patternLines: [MapOverlayData.PatternLine]?) -> MapOverlayData {
+    let network = RouteNetwork(
+      routesByStop: [:], variants: [],
+      stopsByDirection: [:],
+      patterns: [
+        RoutePattern(route: "A", direction: 0, headsign: "1-JUNCTION", trips: 8, stops: ["s1", "s2"]),
+        RoutePattern(route: "A", direction: 0, headsign: "2-EPIC CAMPUS", trips: 5, stops: ["s1"]),
+      ])
+    return MapOverlayData(
+      feedVersion: "v1", routes: [], lines: [], patternLines: patternLines, stops: [], network: network)
+  }
+
+  @Test func destinationLinesSurviveSaving() throws {
+    let line = MapOverlayData.PatternLine(route: "A", direction: 0, headsign: "2-EPIC CAMPUS", latitudes: [43.0, 43.1], longitudes: [-89.5, -89.4])
+    let saved = try PropertyListEncoder().encode(data(patternLines: [line]))
+    let back = try PropertyListDecoder().decode(MapOverlayData.self, from: saved)
+    #expect(back.patternLines == [line])
+    #expect(back.network.patterns(of: "A", direction: 0).map(\.headsign) == ["1-JUNCTION", "2-EPIC CAMPUS"])
+  }
+
+  @Test func aCopySavedBeforeDestinationsExistedStillLoads() throws {
+    // `patternLines` is optional, so a copy without it decodes (and is drawn until the new one is computed).
+    let saved = try PropertyListEncoder().encode(data(patternLines: nil))
+    let back = try PropertyListDecoder().decode(MapOverlayData.self, from: saved)
+    #expect(back.patternLines == nil)
+    #expect(MapOverlay(back).data.patternLines ?? [] == [])
+  }
+}
+
 @Suite struct BusPatternTests {
   @Test func theNumberInFrontOfADestinationIsThePattern() {
     #expect(AppModel.pattern(ofHeadsign: "2-AIRPORT") == "2")

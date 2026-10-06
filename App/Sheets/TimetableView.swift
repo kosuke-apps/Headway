@@ -14,6 +14,7 @@ struct TimetableView: View {
     let departures = loadDepartures()
     let routeIDs = Array(Set(departures.map(\.routeID))).sorted { (model.route($0)?.sortOrder ?? .max, $0) < (model.route($1)?.sortOrder ?? .max, $1) }
     let stop = model.schedule?.stops[stopID]
+    let delays = liveDelays()
     List {
       Section {
         if let side = Compass.bound(stop?.facing) {
@@ -30,6 +31,10 @@ struct TimetableView: View {
           }
           .pickerStyle(.menu)
         }
+      } footer: {
+        if !delays.isEmpty {
+          Text("Times are the timetable's. Next to a bus that is being tracked, orange +3 means 3 minutes behind and blue −2 means 2 minutes ahead of its time right now.")
+        }
       }
       if departures.isEmpty {
         Text("No service on this day.").foregroundStyle(.secondary)
@@ -39,7 +44,7 @@ struct TimetableView: View {
           ForEach(hours(group.departures, text: text), id: \.hour) { row in
             HStack(alignment: .firstTextBaseline, spacing: 12) {
               Text(row.hour).font(.subheadline.weight(.semibold)).monospacedDigit().frame(width: 54, alignment: .trailing)
-              Text(row.minutes.joined(separator: "  ")).font(.body).monospacedDigit()
+              Text(minutesText(row.minutes, delays: delays)).font(.body).monospacedDigit()
               Spacer(minLength: 0)
             }
             .accessibilityElement(children: .combine)
@@ -104,11 +109,13 @@ struct TimetableView: View {
       .sorted { (model.route($0.routeID)?.sortOrder ?? .max, $0.key) < (model.route($1.routeID)?.sortOrder ?? .max, $1.key) }
   }
 
-  private func hours(_ departures: [ScheduledDeparture], text: TimeText) -> [(hour: String, minutes: [String])] {
-    var rows: [(hour: String, minutes: [String])] = []
+  private typealias Minute = (label: String, tripID: String)
+
+  private func hours(_ departures: [ScheduledDeparture], text: TimeText) -> [(hour: String, minutes: [Minute])] {
+    var rows: [(hour: String, minutes: [Minute])] = []
     for departure in departures.sorted(by: { $0.time < $1.time }) {
       let hour = text.hourLabel(departure.time)
-      let minute = text.minuteLabel(departure.time)
+      let minute: Minute = (text.minuteLabel(departure.time), departure.tripID)
       if let last = rows.last, last.hour == hour {
         rows[rows.count - 1].minutes.append(minute)
       } else {
@@ -116,5 +123,30 @@ struct TimetableView: View {
       }
     }
     return rows
+  }
+
+  /// How far each tracked bus of today is from its timetable time at this stop (seconds, late is positive), by trip.
+  private func liveDelays() -> [String: Int] {
+    guard dayOffset == 0, model.settings.values.showDelayDetails, model.settings.values.showScheduledTimes, let schedule = model.schedule else { return [:] }
+    let found = Arrivals.upcoming(
+      schedule: schedule, stopID: stopID, now: Date(), window: 8 * 3600, predictions: model.predictions, vehicles: model.vehicles, limit: 500)
+    return found.reduce(into: [:]) { result, arrival in if let delay = arrival.delay { result[arrival.tripID] = delay } }
+  }
+
+  /// The minutes of an hour as the timetable has them; a bus that is being tracked has its delay beside its minute, in
+  /// colour and small, so that the timetable's own time is never replaced.
+  private func minutesText(_ minutes: [Minute], delays: [String: Int]) -> AttributedString {
+    var result = AttributedString()
+    for (index, minute) in minutes.enumerated() {
+      if index > 0 { result += AttributedString("  ") }
+      result += AttributedString(minute.label)
+      guard let seconds = delays[minute.tripID] else { continue }
+      guard let delay = TimeText.delayMark(seconds: seconds) else { continue }
+      var mark = AttributedString(delay.text)
+      mark.font = .caption.weight(.semibold)
+      mark.foregroundColor = delay.minutes >= 5 ? .red : (delay.minutes > 0 ? .orange : .blue)
+      result += AttributedString(" ") + mark
+    }
+    return result
   }
 }

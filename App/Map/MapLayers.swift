@@ -67,6 +67,13 @@ final class MapLayers {
         polylines.append(feature)
       }
     }
+    // The destinations of a route that has several: drawn alone when one is picked ("p").
+    for line in overlay.data.patternLines ?? [] where line.latitudes.count > 1 {
+      var coordinates = zip(line.latitudes, line.longitudes).map { CLLocationCoordinate2D(latitude: $0, longitude: $1) }
+      let feature = MLNPolylineFeature(coordinates: &coordinates, count: UInt(coordinates.count))
+      feature.attributes = ["route": line.route, "dir": line.direction, "hs": line.headsign, "lane": 0.0, "kind": "p", "k": 1.0, "a0": 1.0, "a1": 1.0]
+      polylines.append(feature)
+    }
     routeSource = MLNShapeSource(identifier: "routes", features: polylines, options: nil)
     stopSource = MLNShapeSource(identifier: "stops", features: [], options: nil)
     favoriteSource = MLNShapeSource(identifier: "favorite-stops", features: [], options: nil)
@@ -280,6 +287,8 @@ final class MapLayers {
       let predicate: NSPredicate
       if bundled {
         predicate = NSPredicate(format: "route == %@ AND (kind == 'o' OR kind == 't')", id)
+      } else if focused, let direction = focus.direction, let headsign = focus.headsign {
+        predicate = NSPredicate(format: "route == %@ AND kind == 'p' AND dir == %d AND hs == %@", id, direction, headsign)
       } else if focused, let direction = focus.direction {
         predicate = NSPredicate(format: "route == %@ AND kind == 'd' AND dir == %d", id, direction)
       } else {
@@ -343,9 +352,13 @@ final class MapLayers {
     arrowLayer.isVisible = focus.isActive
     if focus.isActive {
       let routes = Array(focus.routes)
-      arrowLayer.predicate = focus.direction != nil
-        ? NSPredicate(format: "route IN %@ AND kind == 'd' AND dir == %d", routes, focus.direction!)
-        : NSPredicate(format: "route IN %@ AND kind == 'd'", routes)
+      if let direction = focus.direction, let headsign = focus.headsign {
+        arrowLayer.predicate = NSPredicate(format: "route IN %@ AND kind == 'p' AND dir == %d AND hs == %@", routes, direction, headsign)
+      } else if let direction = focus.direction {
+        arrowLayer.predicate = NSPredicate(format: "route IN %@ AND kind == 'd' AND dir == %d", routes, direction)
+      } else {
+        arrowLayer.predicate = NSPredicate(format: "route IN %@ AND kind == 'd'", routes)
+      }
     }
     arrowLayer.iconImageName = NSExpression(forConstantValue: "route-arrow")
     arrowLayer.symbolPlacement = NSExpression(forConstantValue: "line")
@@ -488,6 +501,7 @@ final class MapLayers {
       focusedStops = []  // the journey's own points are drawn with it
     } else if focus.isActive {
       focusedStops = focus.routes.reduce(into: Set<String>()) { $0.formUnion(network.stops(route: $1, direction: focus.direction)) }
+      if focus.headsign != nil, !focus.headsignStops.isEmpty { focusedStops = focus.headsignStops }
       focusedStops?.formUnion(focus.highlightedStops)
     }
     var features: [MLNPointFeature] = []
@@ -552,6 +566,7 @@ final class MapLayers {
       } else if focus.isActive {
         if !focus.routes.contains(route) && state.prefs.focusStyle == .hide { continue }
         if focus.routes.contains(route), let direction = focus.direction, let own = state.vehicleDirections[vehicle.id], own != direction { continue }
+        if focus.routes.contains(route), let headsign = focus.headsign, let own = state.vehicleHeadsigns[vehicle.id], own != headsign { continue }
         if !focus.highlightedBuses.isEmpty, focus.highlightedBuses[vehicle.id] == nil, state.prefs.focusStyle == .hide { continue }
       } else if hidden.contains(route) {
         continue

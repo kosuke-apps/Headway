@@ -80,6 +80,8 @@ struct Preferences: Codable, Equatable {
   var clockFormat: ClockFormat = .system
   var arrivalStyle: ArrivalStyle = .countdown
   var showDelayDetails = true
+  /// With a live time, also show the timetable's own time and, in the full timetable, how far each bus is from it.
+  var showScheduledTimes = true
 
   // Behaviour
   var hapticFeedback = true
@@ -140,6 +142,7 @@ struct Preferences: Codable, Equatable {
     clockFormat = value(.clockFormat, d.clockFormat)
     arrivalStyle = value(.arrivalStyle, d.arrivalStyle)
     showDelayDetails = value(.showDelayDetails, d.showDelayDetails)
+    showScheduledTimes = value(.showScheduledTimes, d.showScheduledTimes)
     hapticFeedback = value(.hapticFeedback, d.hapticFeedback)
     rememberMapPosition = value(.rememberMapPosition, d.rememberMapPosition)
     walkSpeed = value(.walkSpeed, d.walkSpeed)
@@ -169,7 +172,7 @@ struct Preferences: Codable, Equatable {
   private enum Key: String, CodingKey {
     case appearance, routePalette, markerSize, showRouteNameOnBuses, routeLineWidth, focusStyle, focusFade, stopVisibility, showStopNames
     case updateInterval, smoothBusMovement, estimateBusPositions, pauseLiveInBackground
-    case clockFormat, arrivalStyle, showDelayDetails
+    case clockFormat, arrivalStyle, showDelayDetails, showScheduledTimes
     case hapticFeedback, rememberMapPosition
     case walkSpeed, maxWalkMeters, maxTransfers, transferSeconds, accessibleOnly, journeySort, reminderLeadMinutes
     case savedPlaces, savedTrips, recentTrips

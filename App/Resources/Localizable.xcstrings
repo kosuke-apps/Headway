@@ -4038,6 +4038,105 @@
           }
         }
       }
+    },
+    "Back": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "戻る"
+          }
+        }
+      }
+    },
+    "Choose a direction or destination": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "方向や行き先を選びます"
+          }
+        }
+      }
+    },
+    "All destinations": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "すべての行き先"
+          }
+        }
+      }
+    },
+    "Direction %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "方向 %lld"
+          }
+        }
+      }
+    },
+    "· Scheduled %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "· 時刻表 %@"
+          }
+        }
+      }
+    },
+    "Show timetable times too": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "時刻表の時刻も表示"
+          }
+        }
+      }
+    },
+    "With this on, a live bus shows its timetable time next to how late or early it is, and the full timetable marks live buses with the minutes they are ahead or behind. Timetable times are never replaced.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "オンにすると、運行中のバスには遅れや早さの横に時刻表の時刻も表示されます。時刻表には、追跡中のバスの遅れ・早さ(分)が時刻の横に付きます。時刻表の時刻が書き換えられることはありません。"
+          }
+        }
+      }
+    },
+    "Times are the timetable's. Next to a bus that is being tracked, orange +3 means 3 minutes behind and blue −2 means 2 minutes ahead of its time right now.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "表示されている時刻は時刻表どおりです。位置を追跡中のバスの横の、橙の「+3」は今3分遅れ、青の「−2」は2分早いことを表します。"
+          }
+        }
+      }
+    },
+    "· Expected %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "· 予測 %@"
+          }
+        }
+      }
     }
   }
 }
