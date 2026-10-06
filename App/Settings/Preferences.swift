@@ -22,9 +22,9 @@ enum MarkerSize: String, Codable, CaseIterable, Identifiable {
   /// Radius in points of the coloured disc of a bus marker.
   var radius: Double {
     switch self {
-    case .small: 8
-    case .medium: 10.5
-    case .large: 13
+    case .small: 9.5
+    case .medium: 13
+    case .large: 16
     }
   }
 }

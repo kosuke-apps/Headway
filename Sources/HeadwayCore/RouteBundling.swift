@@ -25,6 +25,16 @@ public struct BundledLine: Sendable, Equatable {
   /// 0 for a route alone on its street; otherwise steps to the right (positive) or left (negative) of the line's own
   /// direction. Fractional values are the short ramps between two lanes.
   public let lane: Double
+  /// How many routes run side by side here (fractional in the ramps between two bundles). The busier the street, the
+  /// thinner the lines are drawn, so that a bundle of eleven does not take up half the screen.
+  public let crowd: Double
+  public let coordinates: [Coordinate]
+}
+
+/// A route line in one direction, with its variants (other destinations along nearly the same streets) merged.
+public struct DirectionLine: Sendable, Equatable {
+  public let route: String
+  public let direction: Int
   public let coordinates: [Coordinate]
 }
 
@@ -54,54 +64,8 @@ public enum RouteBundler {
     func ordered(_ a: String, _ b: String) -> Bool { (orderOfRoute[a] ?? .max, a) < (orderOfRoute[b] ?? .max, b) }
 
     // 1. One merged set of lines per route.
-    var lines: [(route: String, points: [Point])] = []
-    let byRoute = Dictionary(grouping: shapes, by: \.route)
-    for route in byRoute.keys.sorted(by: ordered) {
-      let candidates = byRoute[route]!
-        .map { despike($0.points.map(frame.point)) }
-        .map { densify($0, step: step) }
-        .filter { $0.count > 1 }
-        .sorted { length($0) > length($1) }
-      var kept = SegmentIndex(cell: merge * 2)
-      /// The point of the route's kept lines nearest to `p`, within `merge`: where a branch leaves the main line.
-      func nearestOnKept(_ p: Point) -> Point? {
-        var best: (point: Point, distance: Double)?
-        for hit in kept.near(p, within: merge) {
-          let a = lines[hit.line].points[hit.segment], b = lines[hit.line].points[hit.segment + 1]
-          let (t, d) = project(p, a, b)
-          if best == nil || d < best!.distance { best = (lerp(a, b, t), d) }
-        }
-        return best?.point
-      }
-      for points in candidates {
-        if kept.isEmpty {
-          kept.insert(points, line: lines.count)
-          lines.append((route, points))
-          continue
-        }
-        let covered = points.map { kept.nearest($0, within: merge) != nil }
-        var index = 0
-        while index < points.count {
-          guard !covered[index] else {
-            index += 1
-            continue
-          }
-          var end = index
-          while end < points.count, !covered[end] { end += 1 }
-          // The uncovered stretch, joined to the kept line at both ends: its first and last points lie next to the kept line
-          // but up to `merge` away from it, so a short connector runs from the line to them. Without it the branch
-          // would stop short, and the route would seem to jump where its two directions part.
-          var run = Array(points[max(0, index - 1)..<min(points.count, end + 1)])
-          if index > 0, let join = nearestOnKept(points[index - 1]) { run.insert(join, at: 0) }
-          if end < points.count, let join = nearestOnKept(points[end]) { run.append(join) }
-          if run.count > 1, length(run) >= 60 {
-            kept.insert(run, line: lines.count)
-            lines.append((route, run))
-          }
-          index = end
-        }
-      }
-    }
+    let lines = mergedLines(shapes, by: \.route, sortedBy: ordered, frame: frame, step: step, merge: merge)
+      .map { (route: $0.group, points: $0.points) }
 
     // 2. The shared skeleton, and each line as a walk along it.
     var skeleton: [[Point]] = []
@@ -333,6 +297,10 @@ public enum RouteBundler {
         values.append(lane * piece.sign * orientation(key))
       }
       let target = stable(values, minRun: minRun)
+      // How many routes share the street, for the thickness of the lines.
+      var crowds: [Double] = []
+      for piece in pieces { crowds.append(piece.key.map { Double(lanes($0).count) } ?? crowds.last ?? 1) }
+      let crowdTarget = stable(crowds, minRun: minRun)
 
       // A change of lane is a slide, never a jump. Each change is spread over enough pieces for its size (at least `ramp`,
       // and about four pieces per lane), and the slide is put on the nearest straight stretch: near a turn it would draw
@@ -347,13 +315,15 @@ public enum RouteBundler {
         return true
       }
       var laneStart = target, laneEnd = target
+      var crowdStart = crowdTarget, crowdEnd = crowdTarget
       var changes: [Int] = []
-      for k in 1..<max(1, pieces.count) where target[k] != target[k - 1] { changes.append(k) }
+      for k in 1..<max(1, pieces.count) where target[k] != target[k - 1] || crowdTarget[k] != crowdTarget[k - 1] { changes.append(k) }
       var floor = 0  // pieces before this belong to an earlier slide
       for (n, c) in changes.enumerated() {
         let a = target[c - 1], b = target[c]
+        let ca = crowdTarget[c - 1], cb = crowdTarget[c]
         let ceiling = n + 1 < changes.count ? changes[n + 1] : pieces.count
-        var length = min(40, max(ramp, Int((abs(b - a) * 4).rounded(.up))))
+        var length = min(40, max(ramp, Int((max(abs(b - a), abs(cb - ca) / 2) * 4).rounded(.up))))
         length = min(length, ceiling - floor)
         var chosen: Int?
         if length >= 1 {
@@ -375,36 +345,45 @@ public enum RouteBundler {
           if k < start {
             laneStart[k] = a
             laneEnd[k] = a
+            crowdStart[k] = ca
+            crowdEnd[k] = ca
           } else if k < start + length {
-            laneStart[k] = a + (b - a) * Double(k - start) / Double(length)
-            laneEnd[k] = a + (b - a) * Double(k - start + 1) / Double(length)
+            let t0 = Double(k - start) / Double(length), t1 = Double(k - start + 1) / Double(length)
+            laneStart[k] = a + (b - a) * t0
+            laneEnd[k] = a + (b - a) * t1
+            crowdStart[k] = ca + (cb - ca) * t0
+            crowdEnd[k] = ca + (cb - ca) * t1
           } else {
             laneStart[k] = b
             laneEnd[k] = b
+            crowdStart[k] = cb
+            crowdEnd[k] = cb
           }
         }
         floor = start + length
       }
 
-      var drawn: [(from: Point, to: Point, lane: Double)] = []
+      var drawn: [(from: Point, to: Point, lane: Double, crowd: Double)] = []
       for (k, piece) in pieces.enumerated() {
-        if laneStart[k] == laneEnd[k] {
-          drawn.append((piece.from, piece.to, laneStart[k]))
+        if laneStart[k] == laneEnd[k], crowdStart[k] == crowdEnd[k] {
+          drawn.append((piece.from, piece.to, laneStart[k], crowdStart[k]))
           continue
         }
         for part in 0..<split {
           let from = lerp(piece.from, piece.to, Double(part) / Double(split))
           let to = lerp(piece.from, piece.to, Double(part + 1) / Double(split))
-          drawn.append((from, to, laneStart[k] + (laneEnd[k] - laneStart[k]) * (Double(part) + 0.5) / Double(split)))
+          let t = (Double(part) + 0.5) / Double(split)
+          drawn.append((from, to, laneStart[k] + (laneEnd[k] - laneStart[k]) * t, crowdStart[k] + (crowdEnd[k] - crowdStart[k]) * t))
         }
       }
 
       var start = 0
       for position in 1...drawn.count {
-        if position == drawn.count || drawn[position].lane != drawn[start].lane {
+        if position == drawn.count || drawn[position].lane != drawn[start].lane || drawn[position].crowd != drawn[start].crowd {
           var points = [drawn[start].from]
           for piece in drawn[start..<position] { points.append(piece.to) }
-          result.append(BundledLine(route: route, lane: drawn[start].lane, coordinates: dedupe(points).map(frame.coordinate)))
+          result.append(
+            BundledLine(route: route, lane: drawn[start].lane, crowd: drawn[start].crowd, coordinates: dedupe(points).map(frame.coordinate)))
           start = position
         }
       }
@@ -488,6 +467,81 @@ public enum RouteBundler {
     var result: [Point] = []
     for point in points where result.last.map({ distance($0, point) > 0.01 }) ?? true { result.append(point) }
     return result
+  }
+
+  /// Shapes of the same group merged into lines: the longest is kept whole, and of the others only the parts more than
+  /// `merge` metres away from what is kept (a one-way street used in one direction only, a branch). Spikes out to a
+  /// stop and back are removed first. A branch starts and ends on the kept line.
+  private static func mergedLines(
+    _ shapes: [BundleInput], by group: (BundleInput) -> String, sortedBy ordered: (String, String) -> Bool, frame: Frame,
+    step: Double, merge: Double
+  ) -> [(group: String, points: [Point])] {
+    var lines: [(group: String, points: [Point])] = []
+    let byGroup = Dictionary(grouping: shapes, by: group)
+    for name in byGroup.keys.sorted(by: ordered) {
+      let candidates = byGroup[name]!
+        .map { despike($0.points.map(frame.point)) }
+        .map { densify($0, step: step) }
+        .filter { $0.count > 1 }
+        .sorted { length($0) > length($1) }
+      var kept = SegmentIndex(cell: merge * 2)
+      /// The point of the kept lines nearest to `p`, within `merge`: where a branch leaves the main line.
+      func nearestOnKept(_ p: Point) -> Point? {
+        var best: (point: Point, distance: Double)?
+        for hit in kept.near(p, within: merge) {
+          let a = lines[hit.line].points[hit.segment], b = lines[hit.line].points[hit.segment + 1]
+          let (t, d) = project(p, a, b)
+          if best == nil || d < best!.distance { best = (lerp(a, b, t), d) }
+        }
+        return best?.point
+      }
+      for points in candidates {
+        if kept.isEmpty {
+          kept.insert(points, line: lines.count)
+          lines.append((name, points))
+          continue
+        }
+        let covered = points.map { kept.nearest($0, within: merge) != nil }
+        var index = 0
+        while index < points.count {
+          guard !covered[index] else {
+            index += 1
+            continue
+          }
+          var end = index
+          while end < points.count, !covered[end] { end += 1 }
+          // Its first and last points lie next to the kept line but up to `merge` away from it, so a short connector runs
+          // from the line to them. Without it the branch would stop short, and the route would seem to jump where its
+          // two directions part.
+          var run = Array(points[max(0, index - 1)..<min(points.count, end + 1)])
+          if index > 0, let join = nearestOnKept(points[index - 1]) { run.insert(join, at: 0) }
+          if end < points.count, let join = nearestOnKept(points[end]) { run.append(join) }
+          if run.count > 1, length(run) >= 60 {
+            kept.insert(run, line: lines.count)
+            lines.append((name, run))
+          }
+          index = end
+        }
+      }
+    }
+    return lines
+  }
+
+  /// One line per route and direction, with the variants of a direction (other destinations along nearly the same
+  /// streets) merged into it: what is drawn when a route is looked at on its own.
+  public static func directionLines(_ shapes: [BundleInput], step: Double = 10, merge: Double = 12) -> [DirectionLine] {
+    let all = shapes.flatMap(\.points)
+    guard !all.isEmpty else { return [] }
+    let frame = Frame(latitude: all.map(\.latitude).reduce(0, +) / Double(all.count))
+    let orderOfRoute = Dictionary(shapes.map { ($0.route, $0.order) }, uniquingKeysWith: min)
+    func ordered(_ a: String, _ b: String) -> Bool {
+      let ra = a.split(separator: "|")[0], rb = b.split(separator: "|")[0]
+      return (orderOfRoute[String(ra)] ?? .max, a) < (orderOfRoute[String(rb)] ?? .max, b)
+    }
+    return mergedLines(shapes, by: { "\($0.route)|\($0.direction)" }, sortedBy: ordered, frame: frame, step: step, merge: merge).map {
+      let parts = $0.group.split(separator: "|")
+      return DirectionLine(route: String(parts[0]), direction: Int(parts[1]) ?? 0, coordinates: $0.points.map(frame.coordinate))
+    }
   }
 
   // MARK: Smoothing

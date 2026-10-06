@@ -70,6 +70,7 @@ struct MapContainer: UIViewRepresentable {
     state.schedule = model.schedule
     state.vehicles = model.vehicles
     state.vehicleDirections = model.vehicleDirections
+    state.vehiclePatterns = model.vehiclePatterns
     state.prefs = MapPreferences(model.settings.values)
     state.focus = model.focus
     state.selectedStop = model.selectedStopID
@@ -176,7 +177,7 @@ final class MapCoordinator: NSObject, MLNMapViewDelegate, UIGestureRecognizerDel
       if old.selectedStop != new.selectedStop { layers.setSelectedStop(new) }
       if old.vehicles != new.vehicles || old.prefs.hiddenRoutes != new.prefs.hiddenRoutes
         || old.selectedVehicle != new.selectedVehicle || old.offRouteVehicles != new.offRouteVehicles
-        || old.focus != new.focus || old.vehicleDirections != new.vehicleDirections || old.journeyID != new.journeyID
+        || old.focus != new.focus || old.vehicleDirections != new.vehicleDirections || old.vehiclePatterns != new.vehiclePatterns || old.journeyID != new.journeyID
         || old.schedule?.feedVersion != new.schedule?.feedVersion
       {
         if old.vehicles != new.vehicles || old.prefs.estimateBusPositions != new.prefs.estimateBusPositions

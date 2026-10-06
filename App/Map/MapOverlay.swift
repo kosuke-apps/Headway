@@ -10,7 +10,7 @@ import HeadwayCore
 struct MapOverlayData: Codable, Equatable, Sendable {
   /// Raise this whenever what the overlay holds, or how it is computed (for example the bundling of lanes), changes: a
   /// saved copy of an older version is then ignored and rebuilt from the timetable.
-  static let currentVersion = 9
+  static let currentVersion = 10
 
   struct RouteInfo: Codable, Equatable, Sendable {
     var id: String
@@ -21,13 +21,15 @@ struct MapOverlayData: Codable, Equatable, Sendable {
     var sortOrder: Int
   }
 
-  /// A route line as parallel arrays of coordinates. In `lines`, one shape in one direction, drawn on the street; in
-  /// `overview`, a stretch of the route's merged line (`direction` -1) with the `lane` at which it is drawn so that routes
-  /// sharing a street lie next to each other (0 when alone; see `RouteBundler`).
+  /// A route line as parallel arrays of coordinates. In `lines`, a route's line in one direction (its variants merged),
+  /// drawn on the street; in `overview` and `detail`, a stretch of the route's merged line (`direction` -1) with the
+  /// `lane` at which it is drawn so that routes sharing a street lie next to each other (0 when alone), and `crowd`, the
+  /// number of routes there (see `RouteBundler`).
   struct Line: Codable, Equatable, Sendable {
     var route: String
     var direction: Int
     var lane: Double = 0
+    var crowd: Double = 1
     var latitudes: [Double]
     var longitudes: [Double]
   }
@@ -47,16 +49,20 @@ struct MapOverlayData: Codable, Equatable, Sendable {
   var routes: [RouteInfo]
   /// Each shape of each route, per direction: drawn when a route is looked at on its own.
   var lines: [Line]
-  /// One line per route with lanes: drawn for the whole network.
+  /// One line per route with lanes: drawn for the whole network when zoomed out.
   var overview: [Line] = []
+  /// The same with the two directions of a route kept apart wherever they are more than about 10 m from each other:
+  /// drawn when zoomed in far enough for them to be told apart.
+  var detail: [Line] = []
   var stops: [StopInfo]
   var network: RouteNetwork
 
-  init(feedVersion: String, routes: [RouteInfo], lines: [Line], overview: [Line] = [], stops: [StopInfo], network: RouteNetwork) {
+  init(feedVersion: String, routes: [RouteInfo], lines: [Line], overview: [Line] = [], detail: [Line] = [], stops: [StopInfo], network: RouteNetwork) {
     self.feedVersion = feedVersion
     self.routes = routes
     self.lines = lines
     self.overview = overview
+    self.detail = detail
     self.stops = stops
     self.network = network
   }
@@ -72,13 +78,17 @@ struct MapOverlayData: Codable, Equatable, Sendable {
       guard let trip = tripOfShape[shapeID], let route = schedule.routes[trip.routeID], points.count > 1 else { return nil }
       return BundleInput(route: route.id, order: route.sortOrder, direction: trip.directionID, shapeID: shapeID, points: points)
     }
-    lines = inputs.map {
-      Line(route: $0.route, direction: $0.direction, latitudes: $0.points.map(\.latitude), longitudes: $0.points.map(\.longitude))
+    lines = RouteBundler.directionLines(inputs).map {
+      Line(route: $0.route, direction: $0.direction, latitudes: $0.coordinates.map(\.latitude), longitudes: $0.coordinates.map(\.longitude))
     }
     .sorted { ($0.route, $0.direction, $0.latitudes.count) < ($1.route, $1.direction, $1.latitudes.count) }
-    overview = RouteBundler.overview(inputs).map {
-      Line(route: $0.route, direction: -1, lane: $0.lane, latitudes: $0.coordinates.map(\.latitude), longitudes: $0.coordinates.map(\.longitude))
+    func bundle(_ lines: [BundledLine]) -> [Line] {
+      lines.map {
+        Line(route: $0.route, direction: -1, lane: $0.lane, crowd: $0.crowd, latitudes: $0.coordinates.map(\.latitude), longitudes: $0.coordinates.map(\.longitude))
+      }
     }
+    overview = bundle(RouteBundler.overview(inputs))
+    detail = bundle(RouteBundler.overview(inputs, merge: 10, snap: 8))
     stops = schedule.stops.values.sorted { $0.id < $1.id }.map {
       StopInfo(id: $0.id, name: $0.name, code: $0.code, latitude: $0.latitude, longitude: $0.longitude, facing: $0.facing)
     }

@@ -129,6 +129,46 @@ case "overview":
   try JSONSerialization.data(withJSONObject: collection).write(to: URL(fileURLWithPath: arguments[3]))
   print("wrote \(lines.count) pieces and \(stops.count) stops in \(elapsed)")
 
+case "offroute":
+  // feedanalysis offroute <recordings-root> <routes, comma separated> <from yyyy-MM-ddTHH:mm> <to yyyy-MM-ddTHH:mm> <out.geojson> [min metres]
+  // Positions of buses that were farther than `min metres` (default 60) from their trip's line, to see whether a detour
+  // can be read from the recordings. Times are in the timetable's time zone.
+  guard arguments.count >= 7 else { fail("usage: feedanalysis offroute <dir> <routes> <from> <to> <out.geojson> [metres]") }
+  let schedule = try Schedule.load(zipAt: scheduleZip(directory))
+  let wanted = Set(arguments[3].split(separator: ",").map(String.init))
+  func parse(_ text: String) -> Date {
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.timeZone = schedule.timeZone
+    formatter.dateFormat = "yyyy-MM-dd'T'HH:mm"
+    guard let date = formatter.date(from: text) else { fail("bad time \(text)") }
+    return date
+  }
+  let from = parse(arguments[4]), to = parse(arguments[5])
+  let minimum = arguments.count >= 8 ? Double(arguments[7]) ?? 60 : 60
+  let recordings = try Recordings(directory: directory)
+  var features: [[String: Any]] = []
+  var seen = Set<String>(), onLine = 0, off = 0
+  for file in recordings.files(of: .vehicles) where file.recordedAt >= from && file.recordedAt <= to {
+    let snapshot = try RealtimeDecoder.decode(try gunzip(Data(contentsOf: file.url)))
+    for vehicle in snapshot.vehicles where wanted.contains(vehicle.routeID) && !vehicle.tripID.isEmpty {
+      guard let time = vehicle.timestamp, seen.insert("\(vehicle.id)@\(time.timeIntervalSince1970)").inserted else { continue }
+      guard let distance = schedule.distanceFromRoute(of: vehicle) else { continue }
+      if distance > minimum {
+        off += 1
+        features.append([
+          "type": "Feature",
+          "properties": ["route": vehicle.routeID, "distance": Int(distance), "time": "\(time)", "speed": vehicle.speed ?? -1],
+          "geometry": ["type": "Point", "coordinates": [vehicle.longitude, vehicle.latitude]],
+        ])
+      } else {
+        onLine += 1
+      }
+    }
+  }
+  try JSONSerialization.data(withJSONObject: ["type": "FeatureCollection", "features": features] as [String: Any]).write(to: URL(fileURLWithPath: arguments[6]))
+  print("reports of routes \(wanted.sorted().joined(separator: ",")) between \(arguments[4]) and \(arguments[5]): \(onLine) on their line, \(off) more than \(Int(minimum)) m away")
+
 case "freshness":
   print(try Freshness(recordings: try Recordings(directory: directory)).markdown())
 
