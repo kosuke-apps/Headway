@@ -44,6 +44,16 @@ enum ClockFormat: String, Codable, CaseIterable, Identifiable {
   var id: String { rawValue }
 }
 
+/// How much the app says about a bus being late or early.
+enum DelayDetail: String, CaseIterable, Identifiable {
+  case off
+  /// "5 min late" next to a live time.
+  case minutes
+  /// The timetable's time first, then the live countdown and how late or early it is.
+  case full
+  var id: String { rawValue }
+}
+
 enum ArrivalStyle: String, Codable, CaseIterable, Identifiable {
   /// "4 min", switching to a clock time when far off.
   case countdown

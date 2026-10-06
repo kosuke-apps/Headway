@@ -871,17 +871,6 @@
         }
       }
     },
-    "Show how late or early": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "遅れ・早着を表示"
-          }
-        }
-      }
-    },
     "Show route name on buses": {
       "extractionState": "manual",
       "localizations": {
@@ -4094,28 +4083,6 @@
         }
       }
     },
-    "Show timetable times too": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "時刻表の時刻も表示"
-          }
-        }
-      }
-    },
-    "With this on, a live bus shows its timetable time next to how late or early it is, and the full timetable marks live buses with the minutes they are ahead or behind. Timetable times are never replaced.": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "オンにすると、運行中のバスには遅れや早さの横に時刻表の時刻も表示されます。時刻表には、追跡中のバスの遅れ・早さ(分)が時刻の横に付きます。時刻表の時刻が書き換えられることはありません。"
-          }
-        }
-      }
-    },
     "Times are the timetable's. Next to a bus that is being tracked, orange +3 means 3 minutes behind and blue −2 means 2 minutes ahead of its time right now.": {
       "extractionState": "manual",
       "localizations": {
@@ -4134,6 +4101,259 @@
           "stringUnit": {
             "state": "translated",
             "value": "· 予測 %@"
+          }
+        }
+      }
+    },
+    "Not on a trip": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "運行外のバス"
+          }
+        }
+      }
+    },
+    "Next trip: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "次の運行: %@"
+          }
+        }
+      }
+    },
+    "Waiting to start: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "発車待ち: %@"
+          }
+        }
+      }
+    },
+    "Until then it is not taking passengers on a scheduled trip.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "それまでは時刻表の運行には就いていません。"
+          }
+        }
+      }
+    },
+    "This bus is not on a scheduled trip, so do not count on boarding it.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このバスは時刻表の運行に就いていないので、乗れるとは限りません。"
+          }
+        }
+      }
+    },
+    "Alerts": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "運行情報"
+          }
+        }
+      }
+    },
+    "Routes late": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "遅れの路線"
+          }
+        }
+      }
+    },
+    "Buses early": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "早いバス"
+          }
+        }
+      }
+    },
+    "Alert": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "運行情報あり"
+          }
+        }
+      }
+    },
+    "First stop": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "始発"
+          }
+        }
+      }
+    },
+    "Last stop": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "終点"
+          }
+        }
+      }
+    },
+    "%lld buses, %lld late, %lld on time, %lld early": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld台、遅れ%lld台、定時%lld台、早め%lld台"
+          }
+        }
+      }
+    },
+    "Shows details of the live buses": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "運行中のバスの詳細を表示します"
+          }
+        }
+      }
+    },
+    "%lld not on a trip (out of service or waiting)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld台は運行外または発車待ち"
+          }
+        }
+      }
+    },
+    "Late": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "遅れ"
+          }
+        }
+      }
+    },
+    "Early": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "早め"
+          }
+        }
+      }
+    },
+    "Positions are %lld s old. The city's feed is rebuilt about every 30 seconds.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "位置は%lld秒前のものです。市のデータは約30秒ごとに更新されます。"
+          }
+        }
+      }
+    },
+    "Refresh now": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今すぐ更新"
+          }
+        }
+      }
+    },
+    "Off": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "オフ"
+          }
+        }
+      }
+    },
+    "With timetable time": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "時刻表の時刻つき"
+          }
+        }
+      }
+    },
+    "How late or early": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "遅れ・早さの表示"
+          }
+        }
+      }
+    },
+    "Minutes: a live bus says how many minutes late or early it is. With timetable time: the stop board leads with the timetable's own time, and the live countdown and how late or early it is come under it; the full timetable marks live buses with +3 or −2 beside their minute. Timetable times are never replaced.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "分のみ: 運行中のバスに、何分遅れ・早いかを表示します。時刻表の時刻つき: 停留所の一覧は時刻表どおりの時刻を主にし、その下に実際の到着までの時間と遅れ・早さを表示します。全日の時刻表では、追跡中のバスの分の横に +3 や −2 が付きます。時刻表の時刻が書き換えられることはありません。"
+          }
+        }
+      }
+    },
+    "Tap a route, or one of its directions, to see only that and its stops. Use the switch to hide a route from the map. Swipe left on a route to be notified about it. Next to the bus: red is late (over 5 minutes), green on time, blue early (over 2 minutes). A triangle marks a route with an alert.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "路線や方向をタップすると、その路線と停留所だけを表示します。スイッチで地図から隠せます。路線を左にスワイプすると通知を設定できます。バスの横の数字は、赤が遅れ(5分超)、緑が定時、青が早め(2分超)です。三角は運行情報のある路線です。"
           }
         }
       }

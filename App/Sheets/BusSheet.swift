@@ -20,7 +20,9 @@ struct BusSheet: View {
                 .font(.subheadline).foregroundStyle(.orange)
               ForEach(model.alerts(forRoute: vehicle.routeID)) { AlertRow(alert: $0) }
             }
-            if stops.isEmpty {
+            if vehicle.tripID.isEmpty {
+              idleNotice(vehicle)
+            } else if stops.isEmpty {
               Text("No upcoming stops are known for this bus.").foregroundStyle(.secondary)
             } else {
               Section("Next stops") {
@@ -52,14 +54,27 @@ struct BusSheet: View {
   private func header(_ vehicle: VehicleSample) -> some View {
     VStack(alignment: .leading, spacing: 8) {
       HStack(alignment: .top, spacing: 12) {
-        RouteBadge(routeID: vehicle.routeID)
+        if vehicle.tripID.isEmpty {
+          Text("!").font(.subheadline.weight(.bold)).foregroundStyle(.white).frame(width: 34, height: 28)
+            .background(Color.orange, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        } else {
+          RouteBadge(routeID: vehicle.routeID)
+        }
         VStack(alignment: .leading, spacing: 2) {
-          Text(model.headsign(of: vehicle.tripID).prettyHeadsign).font(.title3.weight(.semibold)).lineLimit(2)
+          Text(vehicle.tripID.isEmpty ? String(localized: "Not on a trip") : model.headsign(of: vehicle.tripID).prettyHeadsign)
+            .font(.title3.weight(.semibold)).lineLimit(2)
           HStack(spacing: 6) {
             Text("Bus \(vehicle.vehicleID)")
             if let age = positionAge(vehicle) { Text("· \(age)") }
           }
           .font(.footnote).foregroundStyle(.secondary)
+          if let seconds = model.vehicleDelays[vehicle.id], let label = TimeText.delay(Int(seconds.rounded())) {
+            // How far this bus is from its timetable right now.
+            Label(label, systemImage: "dot.radiowaves.left.and.right").font(.footnote.weight(.semibold)).foregroundStyle(delayColor(Int(seconds.rounded())))
+          }
+          if !vehicle.tripID.isEmpty, let next = nextTrip(vehicle) {
+            Text("Next trip: \(summary(of: next))").font(.footnote).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+          }
         }
         Spacer(minLength: 8)
         Button { model.clearSelection() } label: {
@@ -77,6 +92,33 @@ struct BusSheet: View {
       }
     }
     .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 10)
+  }
+
+  /// A bus with no trip in the city's feed: it is not on a scheduled trip. If the trip updates already give it one, it is
+  /// waiting for it (often at a terminal, about to go the other way).
+  @ViewBuilder private func idleNotice(_ vehicle: VehicleSample) -> some View {
+    if let next = nextTrip(vehicle) {
+      Label("Waiting to start: \(summary(of: next))", systemImage: "clock").font(.subheadline)
+      Text("Until then it is not taking passengers on a scheduled trip.").font(.footnote).foregroundStyle(.secondary)
+    } else {
+      Label("This bus is not on a scheduled trip, so do not count on boarding it.", systemImage: "exclamationmark.circle")
+        .font(.subheadline).foregroundStyle(.orange)
+    }
+  }
+
+  private func nextTrip(_ vehicle: VehicleSample) -> NextTrip? {
+    guard let schedule = model.schedule else { return nil }
+    return BusNextTrip.of(vehicle, predictions: model.predictions, schedule: schedule, now: Date())
+  }
+
+  /// "B Fitchburg/Caddis · Southbound · 3:08 PM at Capitol Square".
+  private func summary(of next: NextTrip) -> String {
+    let text = model.timeText()
+    var parts = [(model.route(next.routeID)?.shortName ?? next.routeID) + " " + next.headsign.prettyHeadsign]
+    if let way = model.tripDirection(next.tripID) { parts.append(way) }
+    let stop = model.schedule?.stops[next.firstStopID]?.name
+    parts.append(stop.map { "\(text.clock(next.departure)) @ \($0)" } ?? text.clock(next.departure))
+    return parts.joined(separator: " · ")
   }
 
   private func delayColor(_ delay: Int?) -> Color {

@@ -8,6 +8,19 @@ struct SettingsView: View {
   @State private var refreshing = false
   @State private var refreshMessage: LocalizedStringKey?
 
+  /// The two stored switches as one choice: off, minutes, or minutes with the timetable's time.
+  private var delayDetailBinding: Binding<DelayDetail> {
+    Binding(
+      get: {
+        let values = model.settings.values
+        return !values.showDelayDetails ? .off : (values.showScheduledTimes ? .full : .minutes)
+      },
+      set: { choice in
+        model.settings.values.showDelayDetails = choice != .off
+        model.settings.values.showScheduledTimes = choice == .full
+      })
+  }
+
   var body: some View {
     @Bindable var settings = model.settings
     NavigationStack {
@@ -96,13 +109,15 @@ struct SettingsView: View {
             Text("Minutes").tag(ArrivalStyle.countdown)
             Text("Clock times").tag(ArrivalStyle.clock)
           }
-          Toggle("Show how late or early", isOn: $settings.values.showDelayDetails)
-          Toggle("Show timetable times too", isOn: $settings.values.showScheduledTimes)
-            .disabled(!settings.values.showDelayDetails)
+          Picker("How late or early", selection: delayDetailBinding) {
+            Text("Off").tag(DelayDetail.off)
+            Text("Minutes").tag(DelayDetail.minutes)
+            Text("With timetable time").tag(DelayDetail.full)
+          }
         } header: {
           Text("Times")
         } footer: {
-          Text("With this on, a live bus shows its timetable time next to how late or early it is, and the full timetable marks live buses with the minutes they are ahead or behind. Timetable times are never replaced.")
+          Text("Minutes: a live bus says how many minutes late or early it is. With timetable time: the stop board leads with the timetable's own time, and the live countdown and how late or early it is come under it; the full timetable marks live buses with +3 or −2 beside their minute. Timetable times are never replaced.")
         }
 
         Section("Behavior") {

@@ -38,6 +38,15 @@ the data the city publishes (see Data below), and bus times can differ from what
   asks which one you meant.
 - **Which way a bus goes.** Each bus shows its route and pattern ("D2"), a small letter for the way its trip runs
   ("E", "W", "N", "S") and a white or black ring (white for east- and northbound, black for west- and southbound).
+- **How the buses of a route are doing.** The routes list, the route chooser and the chip over the map count the buses of a
+  route (of each direction, of each destination) and colour them: red late (over 5 minutes), green on time, blue early
+  (over 2 minutes). A route with an alert has a triangle. Tapping the bar over the map ("Live · 126 buses") opens the
+  same for the whole network, with a refresh button.
+- **Buses that are not on a trip** (out of service, or waiting at a terminal) are pale with an orange ring and a "!", so
+  that nobody boards one by mistake; when the city already lists the trip a bus will run next, the marker shows that route
+  and its departure time, and the bus's sheet says where it starts.
+- **First and last stop.** A route looked at on its own rings its first stop in green and its last in red; with several
+  destinations in a direction, each end says which pattern it belongs to ("D1", "D2").
 - **Which destination.** A route with several destinations in one direction (D1 to Junction, D2 to Epic Campus, ...) can be
   narrowed to one of them from the chip over the map: its line, stops and buses are shown alone.
 - **Back to the list.** "Show on map" from an alert, a delay or the routes list leaves a back button on the chip over the
@@ -95,7 +104,7 @@ installs it). A free Apple ID works; the app must be re-signed every 7 days.
 ## Quality checks
 
 ```bash
-swift test                                                       # data layer (128 tests)
+swift test                                                       # data layer (133 tests)
 xcodebuild test -project Headway.xcodeproj -scheme Headway \
   -destination 'platform=iOS Simulator,name=iPhone 18 Pro' CODE_SIGNING_ALLOWED=NO   # app tests (51)
 (cd collector && npm test)                                       # collector, in Cloudflare's runtime (9 tests)

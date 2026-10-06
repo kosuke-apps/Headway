@@ -75,6 +75,39 @@ case "shape":
     for q in started.prefix(2) { print("   ", q.routeID, q.stops.prefix(3).map { "\($0.stopID) seq \($0.sequence ?? -1) arr \($0.arrival.map { "\($0)" } ?? "-") dly \($0.arrivalDelay.map(String.init) ?? "-")" }) }
   }
 
+case "fleet":
+  // Which routes each fleet number (the vehicle id) runs on, in the latest position snapshot.
+  let recordings = try Recordings(directory: directory)
+  guard let file = recordings.files(of: .vehicles).last else { fail("no recordings") }
+  let snapshot = try RealtimeDecoder.decode(try gunzip(Data(contentsOf: file.url)))
+  let bySeries = Dictionary(grouping: snapshot.vehicles) { v -> String in
+    guard let number = Int(v.vehicleID) else { return "other" }
+    return number >= 1000 ? "\(number / 100)xx" : "\(number / 100)xx (3 digits)"
+  }
+  for (series, buses) in bySeries.sorted(by: { $0.key < $1.key }) {
+    let routes = Dictionary(grouping: buses, by: { $0.routeID.isEmpty ? "(none)" : $0.routeID }).mapValues(\.count).sorted { $0.key < $1.key }
+    print("\(series): \(buses.count) buses  routes \(routes.map { "\($0.key)×\($0.value)" }.joined(separator: " "))")
+  }
+
+case "layover":
+  // Buses with no trip in the position feed: does the trip feed say which trip each will run next? Latest snapshots.
+  let recordings = try Recordings(directory: directory)
+  guard let vehicleFile = recordings.files(of: .vehicles).last, let tripFile = recordings.files(of: .trips).last else { fail("no recordings") }
+  let positions = try RealtimeDecoder.decode(try gunzip(Data(contentsOf: vehicleFile.url)))
+  let trips = try RealtimeDecoder.decode(try gunzip(Data(contentsOf: tripFile.url)))
+  let idle = positions.vehicles.filter { $0.tripID.isEmpty }
+  print("vehicles \(positions.vehicles.count), without a trip \(idle.count); predictions \(trips.predictions.count), with a vehicle \(trips.predictions.filter { !$0.vehicleID.isEmpty }.count)")
+  let byVehicle = Dictionary(grouping: trips.predictions.filter { !$0.vehicleID.isEmpty }, by: \.vehicleID)
+  for v in idle {
+    let next = (byVehicle[v.vehicleID] ?? []).sorted { ($0.stops.compactMap { $0.arrival ?? $0.departure }.min() ?? .distantFuture) < ($1.stops.compactMap { $0.arrival ?? $0.departure }.min() ?? .distantFuture) }
+    let first = next.first.map { p in "next trip \(p.tripID) route \(p.routeID) first stop \(p.stops.first?.stopID ?? "-") at \(p.stops.compactMap { $0.arrival ?? $0.departure }.min().map { "\($0)" } ?? "-")" } ?? "no trip assigned"
+    print("  bus \(v.vehicleID) label \(v.label) at \(v.latitude),\(v.longitude) speed \(v.speed.map { "\($0)" } ?? "-"): \(first) (\(next.count) predictions)")
+  }
+  // The same for buses on a trip: is a second trip listed for them (the next one on the same block)?
+  let running = positions.vehicles.filter { !$0.tripID.isEmpty }
+  let withNext = running.filter { v in (byVehicle[v.vehicleID] ?? []).contains { $0.tripID != v.tripID } }
+  print("buses on a trip \(running.count); with another trip listed for the same bus \(withNext.count)")
+
 case "punctuality":
   // feedanalysis punctuality <recordings-root> <output.json> [observations.sqlite]
   guard arguments.count >= 4 else { fail("usage: feedanalysis punctuality <recordings-root> <output.json> [observations.sqlite]") }

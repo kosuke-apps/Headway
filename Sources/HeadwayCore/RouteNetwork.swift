@@ -30,15 +30,33 @@ public struct RoutePattern: Sendable, Codable, Hashable, Identifiable {
   public let headsign: String
   public let trips: Int
   public let stops: [String]
+  /// The stop its trips mostly start at and the one they mostly end at (empty when a saved copy does not know).
+  public let first: String
+  public let last: String
 
   public var id: String { "\(route)|\(direction)|\(headsign)" }
 
-  public init(route: String, direction: Int, headsign: String, trips: Int, stops: [String]) {
+  public init(route: String, direction: Int, headsign: String, trips: Int, stops: [String], first: String = "", last: String = "") {
     self.route = route
     self.direction = direction
     self.headsign = headsign
     self.trips = trips
     self.stops = stops
+    self.first = first
+    self.last = last
+  }
+
+  private enum CodingKeys: String, CodingKey { case route, direction, headsign, trips, stops, first, last }
+
+  public init(from decoder: Decoder) throws {
+    let c = try decoder.container(keyedBy: CodingKeys.self)
+    route = try c.decode(String.self, forKey: .route)
+    direction = try c.decode(Int.self, forKey: .direction)
+    headsign = try c.decode(String.self, forKey: .headsign)
+    trips = try c.decode(Int.self, forKey: .trips)
+    stops = try c.decode([String].self, forKey: .stops)
+    first = try c.decodeIfPresent(String.self, forKey: .first) ?? ""
+    last = try c.decodeIfPresent(String.self, forKey: .last) ?? ""
   }
 
   /// "2" for "2-EPIC CAMPUS": the number the city puts in front of a destination to tell the patterns of a route apart.
@@ -100,6 +118,8 @@ public struct RouteNetwork: Sendable, Codable, Equatable {
       var headsigns: [String: Int] = [:]
       var names: [String: Int] = [:]
       var stops: Set<String> = []
+      var firsts: [String: Int] = [:]
+      var lasts: [String: Int] = [:]
     }
     var groups: [String: Group] = [:]
     var patternGroups: [String: Group] = [:]
@@ -115,7 +135,12 @@ public struct RouteNetwork: Sendable, Codable, Equatable {
         let patternKey = "\(key)|\(trip.headsign)"
         var pattern = patternGroups[patternKey] ?? Group()
         pattern.trips += 1
-        for time in schedule.stopTimes[trip.id] ?? [] { pattern.stops.insert(time.stopID) }
+        let times = schedule.stopTimes[trip.id] ?? []
+        for time in times { pattern.stops.insert(time.stopID) }
+        if let first = times.first, let last = times.last {
+          pattern.firsts[first.stopID, default: 0] += 1
+          pattern.lasts[last.stopID, default: 0] += 1
+        }
         patternGroups[patternKey] = pattern
       }
     }
@@ -142,7 +167,11 @@ public struct RouteNetwork: Sendable, Codable, Equatable {
     for (key, group) in patternGroups {
       let parts = key.split(separator: "|", maxSplits: 2, omittingEmptySubsequences: false)
       guard parts.count == 3, let direction = Int(parts[1]) else { continue }
-      patterns.append(RoutePattern(route: String(parts[0]), direction: direction, headsign: String(parts[2]), trips: group.trips, stops: group.stops.sorted()))
+      func commonest(_ counts: [String: Int]) -> String { counts.max { ($0.value, $1.key) < ($1.value, $0.key) }?.key ?? "" }
+      patterns.append(
+        RoutePattern(
+          route: String(parts[0]), direction: direction, headsign: String(parts[2]), trips: group.trips, stops: group.stops.sorted(),
+          first: commonest(group.firsts), last: commonest(group.lasts)))
     }
     patterns.sort {
       let a = order($0.route), b = order($1.route)

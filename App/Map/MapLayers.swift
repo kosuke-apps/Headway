@@ -33,6 +33,14 @@ final class MapLayers {
   private let arrowLayer: MLNSymbolStyleLayer
   private let lateLayer: MLNCircleStyleLayer
   private let earlyLayer: MLNCircleStyleLayer
+  private let terminalSource: MLNShapeSource
+  private let terminalStartLayer: MLNCircleStyleLayer
+  private let terminalEndLayer: MLNCircleStyleLayer
+  private let terminalLabels: MLNSymbolStyleLayer
+  private let idleRing: MLNCircleStyleLayer
+  private let idleDot: MLNCircleStyleLayer
+  private let idleLabel: MLNSymbolStyleLayer
+  private let idleTag: MLNSymbolStyleLayer
   private let selectedBusLayer: MLNCircleStyleLayer
   private let offRouteLayer: MLNCircleStyleLayer
   private let staleLayer: MLNCircleStyleLayer
@@ -83,7 +91,8 @@ final class MapLayers {
     journeySource = MLNShapeSource(identifier: "journey", features: [], options: nil)
     journeyPointSource = MLNShapeSource(identifier: "journey-points", features: [], options: nil)
     selectedBusSource = MLNShapeSource(identifier: "selected-bus", features: [], options: nil)
-    for source in [routeSource, stopSource, favoriteSource, selectedStopSource, highlightStopSource, busSource, selectedBusSource, journeySource, journeyPointSource] {
+    terminalSource = MLNShapeSource(identifier: "terminals", features: [], options: nil)
+    for source in [routeSource, stopSource, favoriteSource, selectedStopSource, highlightStopSource, terminalSource, busSource, selectedBusSource, journeySource, journeyPointSource] {
       style.addSource(source)
     }
     style.setImage(Self.arrowImage(), forName: "route-arrow")
@@ -117,6 +126,13 @@ final class MapLayers {
     Self.insertBelowLabels(selectedStopLayer, in: style)
     highlightStopLayer = MLNCircleStyleLayer(identifier: "highlight-stops", source: highlightStopSource)
     Self.insertBelowLabels(highlightStopLayer, in: style)
+    // The first and last stop of the route in focus: a green ring where its trips start, a red one where they end.
+    terminalStartLayer = MLNCircleStyleLayer(identifier: "terminal-start", source: terminalSource)
+    terminalStartLayer.predicate = NSPredicate(format: "start == %@", NSNumber(value: true))
+    Self.insertBelowLabels(terminalStartLayer, in: style)
+    terminalEndLayer = MLNCircleStyleLayer(identifier: "terminal-end", source: terminalSource)
+    terminalEndLayer.predicate = NSPredicate(format: "end == %@", NSNumber(value: true))
+    Self.insertBelowLabels(terminalEndLayer, in: style)
 
     // The journey sits above routes and stops but below stop names and buses.
     let casing = MLNLineStyleLayer(identifier: "journey-casing", source: journeySource)
@@ -155,6 +171,10 @@ final class MapLayers {
     stopArrows.predicate = NSPredicate(format: "rotate != nil")
     style.addLayer(stopArrows)
 
+    terminalLabels = MLNSymbolStyleLayer(identifier: "terminal-labels", source: terminalSource)
+    terminalLabels.predicate = NSPredicate(format: "label != ''")
+    style.addLayer(terminalLabels)
+
     selectedBusLayer = MLNCircleStyleLayer(identifier: "selected-bus", source: selectedBusSource)
     style.addLayer(selectedBusLayer)
     lateLayer = MLNCircleStyleLayer(identifier: "bus-late", source: busSource)
@@ -166,6 +186,19 @@ final class MapLayers {
     offRouteLayer = MLNCircleStyleLayer(identifier: "off-route", source: busSource)
     offRouteLayer.predicate = NSPredicate(format: "off == %@", NSNumber(value: true))
     style.addLayer(offRouteLayer)
+    // Buses with no trip (out of service, or waiting at a terminal) are muted, with a "!" or the route they will run next.
+    idleRing = MLNCircleStyleLayer(identifier: "bus-idle-ring", source: busSource)
+    idleRing.predicate = NSPredicate(format: "idle == %@", NSNumber(value: true))
+    style.addLayer(idleRing)
+    idleDot = MLNCircleStyleLayer(identifier: Self.idleDotID, source: busSource)
+    idleDot.predicate = NSPredicate(format: "idle == %@", NSNumber(value: true))
+    style.addLayer(idleDot)
+    idleLabel = MLNSymbolStyleLayer(identifier: "bus-idle-label", source: busSource)
+    idleLabel.predicate = NSPredicate(format: "idle == %@", NSNumber(value: true))
+    style.addLayer(idleLabel)
+    idleTag = MLNSymbolStyleLayer(identifier: "bus-idle-tag", source: busSource)
+    idleTag.predicate = NSPredicate(format: "idle == %@ AND tag != ''", NSNumber(value: true))
+    style.addLayer(idleTag)
     for id in routeIDs {
       let ring = MLNCircleStyleLayer(identifier: "bus-ring-\(id)", source: busSource)
       ring.predicate = NSPredicate(format: "route == %@", id)
@@ -368,6 +401,49 @@ final class MapLayers {
     arrowLayer.iconIgnoresPlacement = NSExpression(forConstantValue: true)
     arrowLayer.iconScale = Self.ramp([10: 0.55, 16: 0.9])
 
+    // Buses with no trip: pale, with an orange ring and "!" (or the route they will run next, and when).
+    let idleRadius = prefs.markerSize.radius * 0.95
+    idleRing.circleColor = NSExpression(forConstantValue: UIColor.systemOrange)
+    idleRing.circleRadius = Self.busSize(idleRadius, extra: 2.5)
+    idleDot.circleColor = NSExpression(forConstantValue: state.isDark ? UIColor(white: 0.34, alpha: 1) : UIColor(white: 0.86, alpha: 1))
+    idleDot.circleRadius = Self.busSize(idleRadius)
+    idleLabel.text = NSExpression(forKeyPath: "label")
+    idleLabel.textFontNames = NSExpression(forConstantValue: ["Noto Sans Medium"])
+    idleLabel.textFontSize = Self.busSize(idleRadius * 1.1)
+    idleLabel.textColor = NSExpression(forConstantValue: state.isDark ? UIColor.white : UIColor(white: 0.15, alpha: 1))
+    idleLabel.textAllowsOverlap = NSExpression(forConstantValue: true)
+    idleLabel.textIgnoresPlacement = NSExpression(forConstantValue: true)
+    idleLabel.minimumZoomLevel = 11
+    idleTag.text = NSExpression(forKeyPath: "tag")
+    idleTag.textFontNames = NSExpression(forConstantValue: ["Noto Sans Medium"])
+    idleTag.textFontSize = Self.busSize(idleRadius * 0.95)
+    idleTag.textColor = NSExpression(forConstantValue: theme.labelText)
+    idleTag.textHaloColor = NSExpression(forConstantValue: theme.labelHalo)
+    idleTag.textHaloWidth = NSExpression(forConstantValue: 1.6)
+    idleTag.textOffset = NSExpression(forConstantValue: NSValue(cgVector: CGVector(dx: 0, dy: 1.7)))
+    idleTag.textAllowsOverlap = NSExpression(forConstantValue: true)
+    idleTag.textIgnoresPlacement = NSExpression(forConstantValue: true)
+    idleTag.minimumZoomLevel = 12.8
+
+    // The first and last stop of the route in focus.
+    for (layer, color, scale) in [(terminalStartLayer, UIColor.systemGreen, 1.0), (terminalEndLayer, UIColor.systemRed, 0.72)] {
+      layer.circleColor = NSExpression(forConstantValue: UIColor.clear)
+      layer.circleStrokeColor = NSExpression(forConstantValue: color)
+      layer.circleStrokeWidth = NSExpression(forConstantValue: 3.5)
+      layer.circleRadius = Self.ramp([10: 6 * scale, 14: 11 * scale, 17: 15 * scale])
+    }
+    terminalLabels.text = NSExpression(forKeyPath: "label")
+    terminalLabels.textFontNames = NSExpression(forConstantValue: ["Noto Sans Medium"])
+    terminalLabels.textFontSize = NSExpression(forConstantValue: 12)
+    terminalLabels.textColor = NSExpression(forConstantValue: theme.labelText)
+    terminalLabels.textHaloColor = NSExpression(forConstantValue: theme.labelHalo)
+    terminalLabels.textHaloWidth = NSExpression(forConstantValue: 1.8)
+    terminalLabels.textAnchor = NSExpression(forConstantValue: "bottom")
+    terminalLabels.textOffset = NSExpression(forConstantValue: NSValue(cgVector: CGVector(dx: 0, dy: -1.4)))
+    terminalLabels.textAllowsOverlap = NSExpression(forConstantValue: true)
+    terminalLabels.textIgnoresPlacement = NSExpression(forConstantValue: true)
+    terminalLabels.minimumZoomLevel = 11
+
     // Stops
     stopLayer.isVisible = prefs.stopVisibility != .hidden
     stopLayer.circleColor = NSExpression(forConstantValue: theme.stopFill)
@@ -536,6 +612,35 @@ final class MapLayers {
       return point
     }
     highlightStopSource.shape = MLNShapeCollectionFeature(shapes: highlighted)
+    setTerminals(state)
+  }
+
+  /// Rings the first and last stop of the route in focus (of one destination when one is chosen). A route with several
+  /// destinations in a direction labels each end with the pattern that starts or ends there ("D1", "D2").
+  private func setTerminals(_ state: MapState) {
+    var features: [MLNPointFeature] = []
+    let focus = state.focus
+    if let overlay = state.overlay, focus.routes.count == 1, focus.label == nil, state.journeyID == nil, let route = focus.routes.first {
+      var patterns = overlay.network.patterns(of: route, direction: focus.direction)
+      if let headsign = focus.headsign { patterns = patterns.filter { $0.headsign == headsign } }
+      let several = Dictionary(grouping: patterns, by: \.direction).mapValues(\.count)
+      let name = overlay.routes[route]?.shortName ?? route
+      var starts: [String: [String]] = [:], ends: [String: [String]] = [:]
+      for pattern in patterns {
+        let label = several[pattern.direction, default: 0] > 1 ? pattern.number.map { name + $0 } ?? "" : ""
+        if !pattern.first.isEmpty { starts[pattern.first, default: []].append(label) }
+        if !pattern.last.isEmpty { ends[pattern.last, default: []].append(label) }
+      }
+      for stopID in Set(starts.keys).union(ends.keys).sorted() {
+        guard let stop = overlay.stops[stopID] else { continue }
+        let point = MLNPointFeature()
+        point.coordinate = CLLocationCoordinate2D(latitude: stop.latitude, longitude: stop.longitude)
+        let labels = Array(Set((starts[stopID] ?? []) + (ends[stopID] ?? [])).filter { !$0.isEmpty }).sorted()
+        point.attributes = ["start": starts[stopID] != nil, "end": ends[stopID] != nil, "label": labels.joined(separator: " ")]
+        features.append(point)
+      }
+    }
+    terminalSource.shape = MLNShapeCollectionFeature(shapes: features)
   }
 
   func setSelectedStop(_ state: MapState) {
@@ -561,6 +666,25 @@ final class MapLayers {
     for bus in buses {
       let vehicle = bus.vehicle
       let route = vehicle.routeID
+      if vehicle.tripID.isEmpty {
+        // A bus with no trip: shown when nothing is in focus, or when the trip it will run next is on the focused route.
+        let mark = state.idleMarks[vehicle.id] ?? IdleMark(label: "!", tag: "", routeID: nil)
+        if state.journeyID != nil { continue }
+        if focus.isActive {
+          guard let next = mark.routeID, focus.routes.contains(next) else { continue }
+        } else if let next = mark.routeID, hidden.contains(next) {
+          continue
+        }
+        let point = MLNPointFeature()
+        point.coordinate = bus.coordinate
+        point.attributes = [
+          "id": vehicle.id, "route": "", "idle": true, "label": mark.label, "tag": mark.tag, "off": false,
+          "stale": bus.age > Self.staleAfter, "hl": "", "dir": -1,
+        ]
+        features.append(point)
+        if vehicle.id == state.selectedVehicle { selected = point }
+        continue
+      }
       if state.journeyID != nil, state.prefs.focusStyle == .hide {
         if !state.journeyTrips.contains(vehicle.tripID) { continue }
       } else if focus.isActive {
@@ -590,6 +714,7 @@ final class MapLayers {
     selectedBusSource.shape = selected ?? MLNShapeCollectionFeature(shapes: [])
   }
 
-  var busDotLayerIDs: Set<String> { Set(routeIDs.map(Self.busDotID)) }
+  static let idleDotID = "bus-idle-dot"
+  var busDotLayerIDs: Set<String> { Set(routeIDs.map(Self.busDotID)).union([Self.idleDotID]) }
   var lineLayerIDs: Set<String> { Set(routeIDs.map(Self.lineID)) }
 }

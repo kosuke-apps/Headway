@@ -114,4 +114,64 @@ private func makeNetworkSchedule() throws -> Schedule {
     let data = try JSONEncoder().encode(network)
     #expect(try JSONDecoder().decode(RouteNetwork.self, from: data) == network)
   }
+
+  @Test func aPatternKnowsWhereItsTripsStartAndEnd() throws {
+    let alpha = try #require(network.patterns(of: "X", direction: 0).first { $0.headsign == "To Alpha" })
+    #expect(alpha.first == "B" && alpha.last == "A")
+    let east = try #require(network.patterns(of: "X", direction: 1).first)
+    #expect(east.first == "A" && east.last == "B")
+  }
+
+  @Test func aPatternSavedWithoutItsEndsStillDecodes() throws {
+    let json = #"{"route":"X","direction":0,"headsign":"To Alpha","trips":2,"stops":["A","B"]}"#
+    let pattern = try JSONDecoder().decode(RoutePattern.self, from: Data(json.utf8))
+    #expect(pattern.first.isEmpty && pattern.last.isEmpty)
+  }
+}
+
+@Suite struct BusNextTripTests {
+  private func prediction(trip: String, vehicle: String, first: String, at time: Date, skipped: Bool = false) -> TripPrediction {
+    TripPrediction(
+      entityID: trip, tripID: trip, routeID: "X", directionID: nil, startDate: "", startTime: "", scheduleRelationship: "SCHEDULED",
+      vehicleID: vehicle, timestamp: nil, delay: nil,
+      stops: [StopPrediction(stopID: first, sequence: 1, arrival: time, arrivalDelay: nil, departure: time, departureDelay: nil, skipped: skipped)])
+  }
+
+  private func bus(_ id: String, trip: String) -> VehicleSample {
+    VehicleSample(
+      entityID: id, vehicleID: id, label: "", tripID: trip, routeID: trip.isEmpty ? "" : "X", directionID: nil, startDate: "", latitude: 43, longitude: -89.4,
+      bearing: nil, speed: nil, timestamp: nil, currentStopSequence: nil, stopID: "")
+  }
+
+  @Test func aBusWithNoTripGetsTheEarliestTripListedForIt() throws {
+    let schedule = try makeNetworkSchedule()
+    let now = Date()
+    let found = BusNextTrip.of(
+      bus("V1", trip: ""),
+      predictions: [
+        prediction(trip: "w2", vehicle: "V1", first: "B", at: now.addingTimeInterval(1800)),
+        prediction(trip: "w1", vehicle: "V1", first: "B", at: now.addingTimeInterval(600)),
+        prediction(trip: "w3", vehicle: "V2", first: "B", at: now.addingTimeInterval(60)),
+      ], schedule: schedule, now: now)
+    let next = try #require(found)
+    #expect(next.tripID == "w1" && next.routeID == "X" && next.headsign == "To Alpha" && next.directionName == "Westbound")
+    #expect(next.firstStopID == "B")
+  }
+
+  @Test func theTripABusIsOnIsNotItsNextOne() throws {
+    let schedule = try makeNetworkSchedule()
+    let now = Date()
+    let found = BusNextTrip.of(
+      bus("V1", trip: "e1"), predictions: [prediction(trip: "e1", vehicle: "V1", first: "A", at: now.addingTimeInterval(60))],
+      schedule: schedule, now: now)
+    #expect(found == nil)
+  }
+
+  @Test func tripsAlreadyGoneAndBusesWithoutAnIdAreIgnored() throws {
+    let schedule = try makeNetworkSchedule()
+    let now = Date()
+    let gone = prediction(trip: "w1", vehicle: "V1", first: "B", at: now.addingTimeInterval(-600))
+    #expect(BusNextTrip.of(bus("V1", trip: ""), predictions: [gone], schedule: schedule, now: now) == nil)
+    #expect(BusNextTrip.of(bus("", trip: ""), predictions: [prediction(trip: "w1", vehicle: "", first: "B", at: now)], schedule: schedule, now: now) == nil)
+  }
 }

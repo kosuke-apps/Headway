@@ -30,10 +30,6 @@ struct MapContainer: UIViewRepresentable {
     mapView.allowsRotating = false
     mapView.allowsTilting = false
     mapView.automaticallyAdjustsContentInset = false
-    // The credits sit a little in from the screen's rounded corners, level with each other.
-    let logo = mapView.logoViewMargins, info = mapView.attributionButtonMargins
-    mapView.logoViewMargins = CGPoint(x: logo.x + 10, y: logo.y)
-    mapView.attributionButtonMargins = CGPoint(x: info.x + 10, y: logo.y + (info.y - logo.y))
     let prefs = model.settings.values
     if prefs.rememberMapPosition, let lat = prefs.lastLatitude, let lon = prefs.lastLongitude {
       mapView.setCenter(CLLocationCoordinate2D(latitude: lat, longitude: lon), zoomLevel: prefs.lastZoom ?? 12, animated: false)
@@ -78,6 +74,11 @@ struct MapContainer: UIViewRepresentable {
     state.vehiclePatterns = model.vehiclePatterns
     state.vehicleHeadings = model.vehicleHeadings
     state.vehicleHeadsigns = model.vehicleHeadsigns
+    let clock = model.timeText()
+    state.idleMarks = model.idleBuses.mapValues { idle in
+      guard let next = idle.next, let route = model.route(next.routeID) else { return IdleMark(label: "!", tag: "", routeID: nil) }
+      return IdleMark(label: route.shortName, tag: clock.clock(next.departure), routeID: route.id)
+    }
     state.prefs = MapPreferences(model.settings.values)
     state.focus = model.focus
     state.selectedStop = model.selectedStopID
@@ -113,6 +114,7 @@ struct MapContainer: UIViewRepresentable {
       state.journeyPoints = points
     }
     context.coordinator.apply(state, camera: model.cameraRequest, fit: model.fitRequest)
+    context.coordinator.placeCredits(on: mapView)
   }
 
   static func dismantleUIView(_ mapView: MLNMapView, coordinator: MapCoordinator) {
@@ -127,6 +129,9 @@ final class MapCoordinator: NSObject, MLNMapViewDelegate, UIGestureRecognizerDel
   var onCameraIdle: ((Double, Double, Double) -> Void)?
 
   private weak var mapView: MLNMapView?
+  private var defaultLogoMargins: CGPoint?
+  private var defaultInfoMargins: CGPoint?
+  private var creditsBottomInset: CGFloat = -1
   private var layers: MapLayers?
   private var state = MapState()
   private var appliedOverlay: String?
@@ -186,7 +191,7 @@ final class MapCoordinator: NSObject, MLNMapViewDelegate, UIGestureRecognizerDel
       if old.vehicles != new.vehicles || old.prefs.hiddenRoutes != new.prefs.hiddenRoutes
         || old.selectedVehicle != new.selectedVehicle || old.offRouteVehicles != new.offRouteVehicles
         || old.focus != new.focus || old.vehicleDirections != new.vehicleDirections || old.vehiclePatterns != new.vehiclePatterns
-        || old.vehicleHeadings != new.vehicleHeadings || old.vehicleHeadsigns != new.vehicleHeadsigns || old.journeyID != new.journeyID
+        || old.vehicleHeadings != new.vehicleHeadings || old.vehicleHeadsigns != new.vehicleHeadsigns || old.idleMarks != new.idleMarks || old.journeyID != new.journeyID
         || old.schedule?.feedVersion != new.schedule?.feedVersion
       {
         if old.vehicles != new.vehicles || old.prefs.estimateBusPositions != new.prefs.estimateBusPositions
@@ -208,6 +213,26 @@ final class MapCoordinator: NSObject, MLNMapViewDelegate, UIGestureRecognizerDel
     if let fit, fit.id != lastFitID {
       lastFitID = fit.id
       fitBounds(fit.coordinates)
+    }
+  }
+
+  /// Puts the map's credits (the logo and the "i") where the screen's shape wants them. On a phone with rounded corners
+  /// and a home bar they sit low and in from the corners, level with the bar, so that they look the same on both sides;
+  /// on one with a flat bottom edge they stay where MapLibre puts them.
+  func placeCredits(on mapView: MLNMapView) {
+    let bottom = mapView.window?.safeAreaInsets.bottom ?? 0
+    guard bottom != creditsBottomInset else { return }
+    creditsBottomInset = bottom
+    let logo = defaultLogoMargins ?? mapView.logoViewMargins
+    let info = defaultInfoMargins ?? mapView.attributionButtonMargins
+    defaultLogoMargins = logo
+    defaultInfoMargins = info
+    if bottom > 0 {
+      mapView.logoViewMargins = CGPoint(x: logo.x + 14, y: logo.y - (bottom - 2))
+      mapView.attributionButtonMargins = CGPoint(x: info.x + 14, y: info.y - (bottom - 2))
+    } else {
+      mapView.logoViewMargins = logo
+      mapView.attributionButtonMargins = info
     }
   }
 

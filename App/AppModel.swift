@@ -139,6 +139,12 @@ final class AppModel {
   private(set) var journeyLines: [JourneyPolyline] = []
   private(set) var fitRequest: FitRequest?
   private(set) var status: ServiceStatus?
+  /// Seconds each live bus is behind (positive) or ahead of its timetable, from the trip updates.
+  private(set) var vehicleDelays: [String: Double] = [:]
+  /// What each bus with no trip in the position feed (out of service, or waiting at a terminal) will run next, if known.
+  private(set) var idleBuses: [String: IdleBus] = [:]
+  /// True while the live-status card is open: it needs the delays too.
+  var liveSummaryOpen = false
   /// What the user asked the map to show on its own (a route, an alert, late buses); everything else is hidden or dimmed.
   private(set) var focus = MapFocus()
   /// Routes under the finger after a tap on overlapping lines, waiting for the rider to say which one.
@@ -193,6 +199,51 @@ final class AppModel {
       return count + 1
     }
   }
+
+  /// How the buses of a route (one direction, one destination) are doing: how many, and how many late, on time and early.
+  func fleet(route: String, direction: Int? = nil, headsign: String? = nil) -> FleetBreakdown {
+    var result = FleetBreakdown()
+    for vehicle in vehicles where vehicle.routeID == route && !vehicle.tripID.isEmpty {
+      if let direction, vehicleDirections[vehicle.id] != direction { continue }
+      if let headsign, vehicleHeadsigns[vehicle.id] != headsign { continue }
+      result.total += 1
+      guard let seconds = vehicleDelays[vehicle.id] else { continue }
+      if seconds > ServiceStatusBuilder.lateThreshold {
+        result.late += 1
+      } else if seconds < ServiceStatusBuilder.earlyThreshold {
+        result.early += 1
+      } else {
+        result.onTime += 1
+      }
+    }
+    return result
+  }
+
+  /// The same for every bus on a trip.
+  func fleetAll() -> FleetBreakdown {
+    var result = FleetBreakdown()
+    for vehicle in vehicles where !vehicle.tripID.isEmpty {
+      result.total += 1
+      guard let seconds = vehicleDelays[vehicle.id] else { continue }
+      if seconds > ServiceStatusBuilder.lateThreshold {
+        result.late += 1
+      } else if seconds < ServiceStatusBuilder.earlyThreshold {
+        result.early += 1
+      } else {
+        result.onTime += 1
+      }
+    }
+    return result
+  }
+
+  /// Fetches the buses again right away instead of waiting for the next beat of the city's feed.
+  func refreshNow() {
+    restartPolling()
+    ensurePredictions()
+  }
+
+  /// Buses on the road that are not on a trip.
+  var idleBusCount: Int { vehicles.filter { $0.tripID.isEmpty }.count }
 
   /// Which way buses go at a stop ("Southbound"), when the feed says.
   func stopSide(_ id: String?) -> String? {
@@ -305,7 +356,7 @@ final class AppModel {
     sheet = .bus(vehicleID)
     if let vehicle = vehicles.first(where: { $0.id == vehicleID }) {
       fly(to: vehicle.latitude, vehicle.longitude, minimumZoom: 14)
-      if !focus.isActive {
+      if !focus.isActive, !vehicle.routeID.isEmpty {
         var next = MapFocus.route(vehicle.routeID, direction: vehicleDirections[vehicle.id])
         next.fromBus = true
         focusReturn = nil
@@ -417,6 +468,7 @@ final class AppModel {
     routeChoices = []
     focusReturn = returnTarget()
     focus = .route(id, direction: direction)
+    ensurePredictions()
     if mode != .map { mode = .map }
     if fit { fitToFocus() }
   }
@@ -433,6 +485,7 @@ final class AppModel {
       routeChoices = []
     } else {
       routeChoices = ordered
+      ensurePredictions()
     }
   }
 
@@ -889,7 +942,7 @@ final class AppModel {
     }
     // Watching a route needs the predictions too, but a minute old is old enough.
     let watching = settings.values.watchEnabled && !settings.values.watchedRoutes.isEmpty && Date().timeIntervalSince(lastTripsFetch) > 60
-    if sheet?.isDetail == true || mode != .map || watching {
+    if sheet?.isDetail == true || mode != .map || watching || needsDelays {
       if let snapshot = try? await client.fetch(.trips) {
         predictions = snapshot.predictions
         lastTripsFetch = Date()
@@ -958,9 +1011,37 @@ final class AppModel {
   }
 
   /// Recomputes the service board when it is on screen.
+  /// True when something on screen needs to know how late each bus is: the service board, the routes list, a focused
+  /// route, a stop or bus sheet, the live-status card.
+  private var needsDelays: Bool {
+    mode == .info || sheet == .routes || sheet?.isDetail == true || focus.isActive || liveSummaryOpen
+  }
+
   func refreshStatus() {
-    guard mode == .info, let schedule else { return }
-    status = ServiceStatusBuilder.build(schedule: schedule, predictions: predictions, vehicles: vehicles, now: Date())
+    guard needsDelays, let schedule else { return }
+    let now = Date()
+    let built = ServiceStatusBuilder.build(schedule: schedule, predictions: predictions, vehicles: vehicles, now: now)
+    status = built
+    var delays: [String: Double] = [:]
+    for route in built.routes { for delay in route.busDelays { delays[delay.vehicleID] = delay.seconds } }
+    if delays != vehicleDelays { vehicleDelays = delays }
+    var idle: [String: IdleBus] = [:]
+    for vehicle in vehicles where vehicle.tripID.isEmpty {
+      idle[vehicle.id] = IdleBus(next: BusNextTrip.of(vehicle, predictions: predictions, schedule: schedule, now: now))
+    }
+    if idle != idleBuses { idleBuses = idle }
+  }
+
+  /// Fetches the trip updates now (when the last ones are over 20 s old), for a screen that has just opened and needs them.
+  func ensurePredictions() {
+    guard Date().timeIntervalSince(lastTripsFetch) > 20 else { return refreshStatus() }
+    Task { [weak self] in
+      guard let self, let snapshot = try? await client.fetch(.trips) else { return }
+      predictions = snapshot.predictions
+      lastTripsFetch = Date()
+      refreshStatus()
+      refreshArrivals()
+    }
   }
 
   /// A moving bus more than 150 m from its trip's line is treated as off its usual route. Standing buses (at a terminal
@@ -1014,4 +1095,20 @@ final class AppModel {
   }
 
   func headsign(of tripID: String) -> String { schedule?.trips[tripID]?.headsign ?? "" }
+}
+
+
+/// How the buses of a route are doing: how many are on the road, and how many are late (over 5 minutes), on time and
+/// early (over 2 minutes). Buses without a prediction count only in the total.
+struct FleetBreakdown: Equatable {
+  var total = 0
+  var late = 0
+  var onTime = 0
+  var early = 0
+  var measured: Int { late + onTime + early }
+}
+
+/// A bus that is not on a trip, and the trip it will run next when the trip updates say.
+struct IdleBus: Equatable {
+  let next: NextTrip?
 }

@@ -135,19 +135,30 @@ private struct StatusPill: View {
   @Environment(AppModel.self) private var model
 
   var body: some View {
-    TimelineView(.periodic(from: .now, by: 1)) { context in
-      let age = model.positionAge(at: context.date)
-      let late = model.liveFailing || (age ?? 0) > 90
-      HStack(spacing: 8) {
-        Circle().fill(model.lastLiveUpdate == nil ? Color.gray : (late ? Color.orange : Color.green)).frame(width: 8, height: 8)
-        // One line whatever the numbers are: the text shrinks a little rather than wrapping.
-        Text(text(age: age, late: late)).font(.footnote.weight(.medium)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.75)
+    @Bindable var model = model
+    // Tapping it opens the details of the live feed (how old, how many buses, how many late) and a way to refresh.
+    Button { model.liveSummaryOpen.toggle() } label: {
+      TimelineView(.periodic(from: .now, by: 1)) { context in
+        let age = model.positionAge(at: context.date)
+        let late = model.liveFailing || (age ?? 0) > 90
+        HStack(spacing: 8) {
+          Circle().fill(model.lastLiveUpdate == nil ? Color.gray : (late ? Color.orange : Color.green)).frame(width: 8, height: 8)
+          // One line whatever the numbers are: the text shrinks a little rather than wrapping.
+          Text(text(age: age, late: late)).font(.footnote.weight(.medium)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.75)
+        }
+        .foregroundStyle(.primary)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .background(.regularMaterial, in: Capsule())
+        .accessibilityElement(children: .combine)
       }
-      .padding(.horizontal, 12)
-      .padding(.vertical, 7)
-      .background(.regularMaterial, in: Capsule())
-      .accessibilityElement(children: .combine)
     }
+    .buttonStyle(.plain)
+    .accessibilityHint(Text("Shows details of the live buses"))
+    .popover(isPresented: $model.liveSummaryOpen, attachmentAnchor: .point(.bottom), arrowEdge: .top) {
+      LiveSummary().presentationCompactAdaptation(.popover)
+    }
+    .onChange(of: model.liveSummaryOpen) { _, open in if open { model.ensurePredictions() } }
   }
 
   private func text(age: TimeInterval?, late: Bool) -> String {
@@ -239,9 +250,12 @@ private struct RouteChooser: View {
             Button { model.focusRoute(id, direction: nil, fit: false) } label: {
               HStack(spacing: 6) {
                 RouteBadge(routeID: id)
-                let count = model.busCount(route: id, direction: nil)
-                Text("\(count)").font(.footnote.weight(.medium)).foregroundStyle(count > 0 ? Color.green : Color.secondary).monospacedDigit()
-                  .accessibilityLabel(Text("\(count) buses now"))
+                if model.fleet(route: id).total > 0 {
+                  FleetCounts(route: id)
+                } else {
+                  Text("0").font(.footnote.weight(.medium)).foregroundStyle(.secondary).monospacedDigit()
+                    .accessibilityLabel(Text("0 buses now"))
+                }
               }
               .padding(.horizontal, 8)
               .padding(.vertical, 4)
@@ -303,15 +317,14 @@ private struct FocusChip: View {
   private func label(_ focus: MapFocus, single: String?) -> some View {
     HStack(spacing: 8) {
       if let single { RouteBadge(routeID: single, compact: true) }
-      VStack(alignment: .leading, spacing: 1) {
+      VStack(alignment: .leading, spacing: 3) {
         Text(title(focus, single: single)).font(.footnote.weight(.medium)).foregroundStyle(.primary).lineLimit(1)
         if let single, focus.label == nil {
-          if focus.headsign != nil, let direction = focus.direction {
-            Text(model.directionName(route: single, direction: direction)).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
-          } else {
-            let status = model.liveStatus(route: single, direction: focus.direction)
-            Text(status.text).font(.caption2).foregroundStyle(status.isRunning ? Color.green : Color.secondary).lineLimit(2)
+          // Which way, how many buses, and how many of them are late (red), on time (green) and early (blue).
+          ForEach(model.variants(of: single).map(\.direction).filter { focus.direction == nil || focus.direction == $0 }, id: \.self) { direction in
+            directionLine(route: single, direction: direction, headsign: focus.headsign)
           }
+          legend
         }
         if focus.isAlert {
           // The dashes are the only sign of a detour on the map: say what they mean, and what is not known.
@@ -320,6 +333,35 @@ private struct FocusChip: View {
         }
       }
     }
+  }
+
+  private func directionLine(route: String, direction: Int, headsign: String?) -> some View {
+    HStack(spacing: 5) {
+      Image(systemName: model.directionSymbol(route: route, direction: direction)).font(.caption2)
+      Text(model.directionName(route: route, direction: direction)).font(.caption2).lineLimit(1)
+      if model.fleet(route: route, direction: direction, headsign: headsign).total > 0 {
+        FleetCounts(route: route, direction: direction, headsign: headsign)
+      } else {
+        Text(model.liveStatus(route: route, direction: direction).text).font(.caption2).lineLimit(1)
+      }
+    }
+    .foregroundStyle(.secondary)
+  }
+
+  /// What the rings on the map mean.
+  private var legend: some View {
+    HStack(spacing: 10) {
+      HStack(spacing: 4) {
+        Circle().strokeBorder(Color.green, lineWidth: 2).frame(width: 9, height: 9)
+        Text("First stop")
+      }
+      HStack(spacing: 4) {
+        Circle().strokeBorder(Color.red, lineWidth: 2).frame(width: 9, height: 9)
+        Text("Last stop")
+      }
+    }
+    .font(.caption2)
+    .foregroundStyle(.secondary)
   }
 
   /// Both directions, then each direction with its destinations underneath (D1, D2, ...).
