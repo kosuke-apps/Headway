@@ -63,6 +63,16 @@ public enum RouteBundler {
         .filter { $0.count > 1 }
         .sorted { length($0) > length($1) }
       var kept = SegmentIndex(cell: merge * 2)
+      /// The point of the route's kept lines nearest to `p`, within `merge`: where a branch leaves the main line.
+      func nearestOnKept(_ p: Point) -> Point? {
+        var best: (point: Point, distance: Double)?
+        for hit in kept.near(p, within: merge) {
+          let a = lines[hit.line].points[hit.segment], b = lines[hit.line].points[hit.segment + 1]
+          let (t, d) = project(p, a, b)
+          if best == nil || d < best!.distance { best = (lerp(a, b, t), d) }
+        }
+        return best?.point
+      }
       for points in candidates {
         if kept.isEmpty {
           kept.insert(points, line: lines.count)
@@ -78,8 +88,12 @@ public enum RouteBundler {
           }
           var end = index
           while end < points.count, !covered[end] { end += 1 }
-          // The uncovered stretch, joined to the kept line at both ends.
-          let run = Array(points[max(0, index - 1)..<min(points.count, end + 1)])
+          // The uncovered stretch, joined to the kept line at both ends: its first and last points lie next to the kept line
+          // but up to `merge` away from it, so a short connector runs from the line to them. Without it the branch
+          // would stop short, and the route would seem to jump where its two directions part.
+          var run = Array(points[max(0, index - 1)..<min(points.count, end + 1)])
+          if index > 0, let join = nearestOnKept(points[index - 1]) { run.insert(join, at: 0) }
+          if end < points.count, let join = nearestOnKept(points[end]) { run.append(join) }
           if run.count > 1, length(run) >= 60 {
             kept.insert(run, line: lines.count)
             lines.append((route, run))
@@ -137,14 +151,13 @@ public enum RouteBundler {
       walks.append((line.route, positions))
     }
 
-    // 3. Who uses each piece of skeleton, and in which direction; then each route's pieces in order.
+    // 3. Each route's pieces on the skeleton, then the order of routes wherever they run side by side.
     struct Piece {
       var from: Point
       var to: Point
       var key: Int?  // skeleton line << 32 | segment; nil for a short link between two skeleton lines
-      var sign: Double
+      var sign: Double  // 1 along the skeleton line, -1 against it
     }
-    var users: [Int: [String: Double]] = [:]  // route -> the direction of its first pass (1 along the skeleton, -1 against)
     var routePieces: [(route: String, pieces: [Piece])] = []
     for walk in walks {
       var pieces: [Piece] = []
@@ -164,28 +177,160 @@ public enum RouteBundler {
         stops.append((location(q, skeleton), q.segment))
         for (a, b) in zip(stops, stops.dropFirst()) where distance(a.point, b.point) > 0.01 {
           let segment = forward ? a.segment : b.segment
-          let key = p.line << 32 | segment
-          if users[key, default: [:]][walk.route] == nil { users[key, default: [:]][walk.route] = forward ? 1 : -1 }
-          pieces.append(Piece(from: a.point, to: b.point, key: key, sign: forward ? 1 : -1))
+          pieces.append(Piece(from: a.point, to: b.point, key: p.line << 32 | segment, sign: forward ? 1 : -1))
         }
       }
       routePieces.append((walk.route, pieces))
     }
 
+    // The frame of each skeleton line: which way its lanes are counted. Lines that continue each other (a route goes
+    // from one to the next without turning sharply) share one frame, so the order of routes carries on unbroken along
+    // a street, even where the street curves or is made of several lines. Sharp turns start a new frame.
+    var votes: [Int: [Int: Double]] = [:]  // line -> neighbour line -> sum of (relation) over routes
+    for (_, pieces) in routePieces {
+      var previous: (line: Int, sign: Double, heading: Point)?
+      for piece in pieces {
+        guard let key = piece.key else { continue }
+        let line = key >> 32, heading = unit(piece.from, piece.to)
+        if let before = previous, before.line != line, dot(before.heading, heading) > cos(35.0 * .pi / 180) {
+          // Same travel frame on both: frame(line) * sign is the same, so the frames differ by the product of signs.
+          let relation = before.sign * piece.sign
+          votes[before.line, default: [:]][line, default: 0] += relation
+          votes[line, default: [:]][before.line, default: 0] += relation
+        }
+        previous = (line, piece.sign, heading)
+      }
+    }
+    var lineFrame: [Int: Double] = [:]
+    for start in votes.keys.sorted() where lineFrame[start] == nil {
+      lineFrame[start] = 1
+      var queue = [start]
+      var head = 0
+      while head < queue.count {
+        let current = queue[head]
+        head += 1
+        let neighbours = (votes[current] ?? [:]).sorted { $0.key < $1.key }
+        for (neighbour, relation) in neighbours where lineFrame[neighbour] == nil && relation != 0 {
+          lineFrame[neighbour] = lineFrame[current]! * (relation > 0 ? 1 : -1)
+          queue.append(neighbour)
+        }
+      }
+    }
+    func orientation(_ key: Int) -> Double { lineFrame[key >> 32] ?? 1 }
+
+    // The order of routes in a bundle is decided per pair, once for each stretch the two run side by side: where they
+    // part, the one that goes left is on the left and the one that goes right on the right; if they part the same way,
+    // the same is looked at where they met; if there is nothing to tell, the route list decides. A stretch has one
+    // answer from end to end, so two routes cross only where one of them joins or leaves.
+    let count = routePieces.count
+    let firstIndex: [[Int: Int]] = routePieces.map { entry in
+      var map: [Int: Int] = [:]
+      for (index, piece) in entry.pieces.enumerated() { if let key = piece.key, map[key] == nil { map[key] = index } }
+      return map
+    }
+    func angle(_ from: Point, _ to: Point) -> Double { atan2(from.x * to.y - from.y * to.x, dot(from, to)) }
+    /// The point `meters` along a walk, from the end of piece `index` going on or from its start going back.
+    func along(_ pieces: [Piece], _ index: Int, forward: Bool, meters: Double) -> Point? {
+      var remaining = meters
+      var last = forward ? pieces[index].to : pieces[index].from
+      var k = forward ? index + 1 : index - 1
+      while k >= 0, k < pieces.count {
+        let a = forward ? pieces[k].from : pieces[k].to, b = forward ? pieces[k].to : pieces[k].from
+        let length = distance(a, b)
+        if length >= remaining { return lerp(a, b, remaining / max(length, 1e-9)) }
+        remaining -= length
+        last = b
+        k += forward ? 1 : -1
+      }
+      return meters - remaining >= 10 ? last : nil
+    }
+    /// 1 when route x is on the left of route y (as seen along x's way) over the stretch `xs` of x against `ys` of y
+    /// (y's walk runs the same way as x's when `d` is 1, the opposite way when it is -1); nil when undecided.
+    func decide(_ px: [Piece], _ xs: ClosedRange<Int>, _ py: [Piece], _ ys: ClosedRange<Int>, _ d: Int) -> Double? {
+      let tolerance = 20.0 * .pi / 180
+      // Where they part, going on.
+      let endX = px[xs.upperBound].to
+      let yEnd = d > 0 ? ys.upperBound : ys.lowerBound
+      if let backX = along(px, xs.upperBound, forward: false, meters: 20), let outX = along(px, xs.upperBound, forward: true, meters: 30),
+        let outY = along(py, yEnd, forward: d > 0, meters: 30)
+      {
+        let h = unit(backX, endX)
+        let ax = angle(h, unit(endX, outX)), ay = angle(h, unit(endX, outY))
+        if abs(ax - ay) > tolerance { return ax > ay ? 1 : -1 }
+      }
+      // Where they met, looking back.
+      let startX = px[xs.lowerBound].from
+      let yStart = d > 0 ? ys.lowerBound : ys.upperBound
+      if let aheadX = along(px, xs.lowerBound, forward: true, meters: 20), let outX = along(px, xs.lowerBound, forward: false, meters: 30),
+        let outY = along(py, yStart, forward: d < 0, meters: 30)
+      {
+        let hb = unit(aheadX, startX)  // pointing back, away from the stretch
+        let ax = angle(hb, unit(startX, outX)), ay = angle(hb, unit(startX, outY))
+        if abs(ax - ay) > tolerance { return ax < ay ? 1 : -1 }
+      }
+      return nil
+    }
+    var decisions: [Int: [Int: Double]] = [:]  // skeleton piece -> (x * count + y) -> 1 when x is on the left of y
+    for x in 0..<count {
+      let px = routePieces[x].pieces
+      for y in (x + 1)..<max(x + 1, count) {
+        let py = routePieces[y].pieces
+        let indexInY = firstIndex[y]
+        var i = 0
+        while i < px.count {
+          guard let key = px[i].key, let j0 = indexInY[key] else {
+            i += 1
+            continue
+          }
+          let d = px[i].sign == py[j0].sign ? 1 : -1
+          var last = i
+          while last + 1 < px.count, let next = px[last + 1].key {
+            let j = j0 + d * (last + 1 - i)
+            guard j >= 0, j < py.count, py[j].key == next else { break }
+            last += 1
+          }
+          let jEnd = j0 + d * (last - i)
+          let ys = min(j0, jEnd)...max(j0, jEnd)
+          if let left = decide(px, i...last, py, ys, d) {
+            for t in i...last { if let k = px[t].key { decisions[k, default: [:]][x * count + y] = left } }
+          }
+          i = last + 1
+        }
+      }
+    }
+    /// The lane of each route on a piece of skeleton, counted to the right of the line's frame.
+    var laneCache: [Int: [Int: Double]] = [:]
+    func lanes(_ key: Int) -> [Int: Double] {
+      if let cached = laneCache[key] { return cached }
+      let members = (0..<count).filter { firstIndex[$0][key] != nil }
+      let f = orientation(key)
+      func leftOf(_ p: Int, _ q: Int) -> Bool {
+        if p > q { return !leftOf(q, p) }
+        guard let value = decisions[key]?[p * count + q] else { return true }  // undecided: the route list decides
+        let along = routePieces[p].pieces[firstIndex[p][key]!].sign * f  // 1 when p runs the way the frame points
+        return (value > 0) == (along > 0)
+      }
+      var score: [Int: Int] = [:]
+      for p in members { score[p] = members.filter { $0 != p && leftOf(p, $0) }.count }
+      let order = members.sorted { (-score[$0]!, $0) < (-score[$1]!, $1) }
+      var result: [Int: Double] = [:]
+      for (rank, member) in order.enumerated() { result[member] = Double(rank) - Double(order.count - 1) / 2 }
+      laneCache[key] = result
+      return result
+    }
+
     // 4. Lanes, smoothed, eased from one to the next, and cut into runs.
     var result: [BundledLine] = []
-    for (route, pieces) in routePieces where !pieces.isEmpty {
+    for (routeIndex, (route, pieces)) in routePieces.enumerated() where !pieces.isEmpty {
       var values: [Double] = []
       for piece in pieces {
-        guard let key = piece.key, let routes = users[key] else {
+        guard let key = piece.key, let lane = lanes(key)[routeIndex] else {
           values.append(values.last ?? 0)
           continue
         }
-        let sorted = routes.keys.sorted(by: ordered)
-        let lane = Double(sorted.firstIndex(of: route)!) - Double(sorted.count - 1) / 2
-        // Sides are counted along the way the bundle's first route goes, so that the order of the routes is the same
-        // whichever way the skeleton line happens to run.
-        values.append(lane * piece.sign * routes[sorted[0]]!)
+        // The lane is counted to the right of the frame of the street; along the route it is to the right only when
+        // the route travels the way the frame points.
+        values.append(lane * piece.sign * orientation(key))
       }
       let target = stable(values, minRun: minRun)
 
