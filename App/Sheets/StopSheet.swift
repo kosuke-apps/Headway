@@ -161,6 +161,9 @@ struct ArrivalRow: View {
 
   var body: some View {
     let text = model.timeText()
+    // With the timetable's time first, the time at the right is the timetable's, and what is live (the countdown, how late
+    // or early) goes under it: a live time never replaces the timetable's.
+    let full = model.settings.values.showDelayDetails && model.settings.values.showScheduledTimes
     Button {
       if let vehicle = arrival.vehicle { model.selectBus(vehicle.id) }
     } label: {
@@ -173,11 +176,12 @@ struct ArrivalRow: View {
             Text(arrival.headsign.prettyHeadsign).font(.body).lineLimit(1).layoutPriority(1)
             if let way = direction { Text(way).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
           }
-          LiveStatus(
-            arrival: arrival, showDelay: model.settings.values.showDelayDetails,
-            scheduled: model.settings.values.showScheduledTimes ? text.clock(arrival.scheduled) : nil)
+          LiveStatus(arrival: arrival, showDelay: model.settings.values.showDelayDetails, scheduled: nil)
         }
         Spacer(minLength: 8)
+        if full {
+          fullTimes(text)
+        } else {
         VStack(alignment: .trailing, spacing: 1) {
           Text(text.arrival(arrival, now: now))
             .font(.title3.weight(arrival.status == .live ? .semibold : .regular)).monospacedDigit()
@@ -192,6 +196,7 @@ struct ArrivalRow: View {
             Text(text.clock(arrival.expected)).font(.caption).foregroundStyle(.secondary).monospacedDigit()
           }
         }
+        }
       }
       .padding(.horizontal, 16).padding(.vertical, 10)
       .contentShape(Rectangle())
@@ -200,6 +205,39 @@ struct ArrivalRow: View {
     // Only buses with a position can be shown on the map; timetable-only rows stay fully legible but do nothing.
     .allowsHitTesting(arrival.vehicle != nil)
     .accessibilityElement(children: .combine)
+  }
+}
+
+extension ArrivalRow {
+  /// The right side of a row that leads with the timetable: its time, then, for a bus that is live (or soon due), the
+  /// countdown to when it is expected, coloured by how late or early it is.
+  @ViewBuilder fileprivate func fullTimes(_ text: TimeText) -> some View {
+    VStack(alignment: .trailing, spacing: 1) {
+      Text(text.clock(arrival.scheduled)).font(.title3).monospacedDigit()
+      let minutes = arrival.minutes(from: now)
+      if arrival.status == .live {
+        // Live: when it is expected, as a countdown when near and as a clock time otherwise.
+        let expected = model.settings.values.arrivalStyle == .countdown && minutes < 60 ? text.arrival(arrival, now: now) : text.clock(arrival.expected)
+        Text(expected).font(.caption.weight(.semibold)).foregroundStyle(liveColor).monospacedDigit()
+      } else if model.settings.values.arrivalStyle == .countdown, minutes < 60 {
+        Text(text.arrival(arrival, now: now)).font(.caption).foregroundStyle(.secondary).monospacedDigit()
+      }
+      if let window = model.window(for: arrival, now: now),
+        let range = model.settings.values.arrivalStyle == .countdown && minutes < 60
+          ? TimeText.minuteRange(earliest: window.earliest, latest: window.latest, now: now)
+          : text.clockRange(earliest: window.earliest, latest: window.latest)
+      {
+        Text(range).font(.caption2).foregroundStyle(.secondary).monospacedDigit()
+      }
+    }
+  }
+
+  private var liveColor: Color {
+    guard let delay = arrival.delay else { return .green }
+    if delay > 300 { return .red }
+    if delay > 90 { return .orange }
+    if delay < -90 { return .blue }
+    return .green
   }
 }
 

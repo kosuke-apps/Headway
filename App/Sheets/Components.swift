@@ -70,6 +70,41 @@ struct LiveStatus: View {
   }
 }
 
+/// How many buses a route (one direction, one destination) has on the road, and how many of them are late (red), on
+/// time (green) and early (blue). Nothing when there are none.
+struct FleetCounts: View {
+  @Environment(AppModel.self) private var model
+  let route: String
+  var direction: Int? = nil
+  var headsign: String? = nil
+
+  var body: some View {
+    let fleet = model.fleet(route: route, direction: direction, headsign: headsign)
+    if fleet.total > 0 {
+      HStack(spacing: 4) {
+        HStack(spacing: 3) {
+          Image(systemName: "bus.fill").font(.caption2)
+          Text("\(fleet.total)").monospacedDigit()
+        }
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(.secondary)
+        pill(fleet.late, .red)
+        pill(fleet.onTime, .green)
+        pill(fleet.early, .blue)
+      }
+      .accessibilityElement(children: .ignore)
+      .accessibilityLabel(Text("\(fleet.total) buses, \(fleet.late) late, \(fleet.onTime) on time, \(fleet.early) early"))
+    }
+  }
+
+  @ViewBuilder private func pill(_ number: Int, _ color: Color) -> some View {
+    if number > 0 {
+      Text("\(number)").font(.caption2.weight(.bold)).monospacedDigit().foregroundStyle(.white)
+        .padding(.horizontal, 5).padding(.vertical, 1.5).background(color, in: Capsule())
+    }
+  }
+}
+
 /// Lays views out in rows, moving to the next row when one does not fit: a few chips that would otherwise be cut off.
 struct FlowLayout: Layout {
   var spacing: CGFloat = 8

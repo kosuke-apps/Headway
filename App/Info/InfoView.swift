@@ -43,27 +43,25 @@ struct InfoView: View {
           Spacer()
           LiveAgeText()
         }
-        // Each chip with something behind it is a button (it has a chevron): alerts jump to the list below, late and
-        // early buses are shown on the map.
-        FlowLayout(spacing: 8) {
-          let alerts = model.visibleActiveAlerts.count
+        // Three square tiles: the symbol, then the number. Each with something behind it is a button: alerts jump to the
+        // list below, late and early buses are shown on the map.
+        let alerts = model.visibleActiveAlerts.count
+        HStack(spacing: 10) {
           Button { withAnimation { proxy.scrollTo("alerts", anchor: .top) } } label: {
-            SummaryChip(symbol: "exclamationmark.triangle.fill", tint: .orange, text: String(localized: "\(alerts) alerts"), tappable: alerts > 0)
+            SummaryTile(symbol: "exclamationmark.triangle.fill", tint: .orange, number: alerts, caption: "Alerts")
           }
           .buttonStyle(.plain)
           .disabled(alerts == 0)
           Button { if late > 0 { model.focusDelays() } } label: {
-            SummaryChip(symbol: "clock.badge.exclamationmark", tint: late > 0 ? .red : .green,
-              text: late > 0 ? String(localized: "\(late) routes late") : String(localized: "No late routes"), tappable: late > 0)
+            SummaryTile(symbol: "clock.badge.exclamationmark", tint: .red, number: late, caption: "Routes late")
           }
           .buttonStyle(.plain)
           .disabled(late == 0)
-          if early > 0 {
-            Button { model.focusDelays(late: false, early: true) } label: {
-              SummaryChip(symbol: "clock.arrow.circlepath", tint: .blue, text: String(localized: "\(early) buses early"), tappable: true)
-            }
-            .buttonStyle(.plain)
+          Button { model.focusDelays(late: false, early: true) } label: {
+            SummaryTile(symbol: "clock.arrow.circlepath", tint: .blue, number: early, caption: "Buses early")
           }
+          .buttonStyle(.plain)
+          .disabled(early == 0)
         }
       }
       .padding(.vertical, 4)
@@ -186,22 +184,26 @@ struct InfoView: View {
 
 // MARK: - Pieces
 
-private struct SummaryChip: View {
+private struct SummaryTile: View {
   let symbol: String
   let tint: Color
-  let text: String
-  /// True when tapping the chip does something: it then ends with a chevron.
-  var tappable = false
+  let number: Int
+  let caption: LocalizedStringKey
 
   var body: some View {
-    HStack(spacing: 5) {
-      Image(systemName: symbol).font(.footnote).foregroundStyle(tint)
-      Text(text).font(.footnote.weight(.medium)).lineLimit(1).fixedSize()
-      if tappable { Image(systemName: "chevron.right").font(.caption2.weight(.bold)).foregroundStyle(tint) }
+    // Nothing to see (no alerts, no late routes) is quiet grey rather than a warning colour.
+    let colour = number > 0 ? tint : Color.secondary
+    VStack(spacing: 4) {
+      Image(systemName: symbol).font(.title2).foregroundStyle(colour)
+      Text("\(number)").font(.title.weight(.bold)).monospacedDigit().foregroundStyle(number > 0 ? Color.primary : Color.secondary)
+      Text(caption).font(.caption2).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.7)
     }
-    .padding(.horizontal, 10).padding(.vertical, 6)
-    .background(tint.opacity(0.12), in: Capsule())
-    .contentShape(Capsule())
+    .frame(maxWidth: .infinity)
+    .aspectRatio(1, contentMode: .fit)
+    .background(colour.opacity(0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(Text("\(number)") + Text(" ") + Text(caption))
   }
 }
 

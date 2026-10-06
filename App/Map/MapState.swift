@@ -50,6 +50,8 @@ struct MapState {
   var vehicleHeadings: [String: String] = [:]
   /// The destination ("2-EPIC CAMPUS") of each bus's trip, to show one destination of a route on its own.
   var vehicleHeadsigns: [String: String] = [:]
+  /// Buses with no trip: what to write on their markers ("!" or the route they will run next, and when).
+  var idleMarks: [String: IdleMark] = [:]
   var prefs = MapPreferences()
   var focus = MapFocus()
   var selectedStop: String?
@@ -67,6 +69,13 @@ struct MapState {
   var journeyTrips: Set<String> = []
   var journeyLines: [JourneyLine] = []
   var journeyPoints: [(coordinate: CLLocationCoordinate2D, kind: String)] = []
+}
+
+/// A bus that is not on a trip, as drawn: a muted marker with "!", or with the route of the trip it is about to run and when.
+struct IdleMark: Equatable {
+  let label: String
+  let tag: String
+  let routeID: String?
 }
 
 /// One line of a journey, ready to draw.

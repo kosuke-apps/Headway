@@ -18,12 +18,15 @@ struct RoutesSheet: View {
         } header: {
           Text("All routes")
         } footer: {
-          Text("Tap a route, or one of its directions, to see only that and its stops. Use the switch to hide a route from the map. Swipe left on a route to be notified about it.")
+          Text("Tap a route, or one of its directions, to see only that and its stops. Use the switch to hide a route from the map. Swipe left on a route to be notified about it. Next to the bus: red is late (over 5 minutes), green on time, blue early (over 2 minutes). A triangle marks a route with an alert.")
         }
       }
       .navigationTitle("Routes")
       .navigationBarTitleDisplayMode(.inline)
-      .onAppear { model.refreshOutlooks() }
+      .onAppear {
+        model.refreshOutlooks()
+        model.ensurePredictions()
+      }
       .notificationsDeniedAlert()
       .toolbar {
         ToolbarItem(placement: .topBarLeading) {
@@ -37,19 +40,10 @@ struct RoutesSheet: View {
     }
   }
 
-  /// How many buses are running, as a number to the right of the name; nothing when there are none (the reason goes
-  /// under the name instead).
+  /// How many buses are running, with how many of them are late, on time and early, to the right of the name; nothing
+  /// when there are none (the reason goes under the name instead).
   @ViewBuilder private func count(route: String, direction: Int?) -> some View {
-    if case .buses(let number) = model.liveStatus(route: route, direction: direction).kind {
-      HStack(spacing: 3) {
-        Image(systemName: "bus.fill").font(.caption2)
-        Text("\(number)").monospacedDigit()
-      }
-      .font(.caption.weight(.semibold))
-      .foregroundStyle(.green)
-      .accessibilityElement(children: .ignore)
-      .accessibilityLabel(Text("\(number) buses now"))
-    }
+    FleetCounts(route: route, direction: direction)
   }
 
   /// Why there are no buses (not running today, between trips, ...): nothing is wrong, but it is worth a line.
@@ -79,6 +73,9 @@ struct RoutesSheet: View {
               HStack(spacing: 6) {
                 Text(route.longName.isEmpty ? String(localized: "Both directions") : route.longName).font(.subheadline).lineLimit(2)
                   .foregroundStyle(focused && model.focus.direction == nil ? Color.blue : Color.primary)
+                if model.alertRouteIDs.contains(route.id) {
+                  Image(systemName: "exclamationmark.triangle.fill").font(.caption).foregroundStyle(.orange).accessibilityLabel(Text("Alert"))
+                }
                 if model.isWatching(route: route.id) { Image(systemName: "bell.fill").font(.caption2).foregroundStyle(.orange) }
                 Spacer(minLength: 4)
                 count(route: route.id, direction: nil)

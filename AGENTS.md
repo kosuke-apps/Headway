@@ -64,6 +64,16 @@ The author's general workspace rules (outside this repository) apply too; this f
   - Times: with `showScheduledTimes` (Settings > Times) the stop board and a bus's next stops show the timetable's time and
     how far the live time is from it (`LiveStatus`, `BusSheet`), and the full timetable marks tracked buses with
     `TimeText.delayMark` (+3 / −2). Nothing replaces a timetable time.
+  - Delays per bus: `AppModel.refreshStatus` builds `ServiceStatus` and keeps `vehicleDelays` (seconds from the timetable at
+    the bus's next stop) while a screen needs them (`needsDelays`: service board, routes list, a focus, a stop or bus
+    sheet, the live card); `fleet(route:direction:headsign:)` counts late (over 5 min), on time and early (over 2 min) for
+    `FleetCounts`. The trip updates are fetched when such a screen opens (`ensurePredictions`).
+  - Buses with no trip: `VehicleSample.tripID` is empty for 5-7 of about 125 buses (out of service, or waiting). They are
+    drawn by their own layers (`bus-idle-*`, pale with an orange ring and "!"); `BusNextTrip.of` finds the trip the trip
+    updates list for the same bus (`feedanalysis layover` shows it on a recording), and the marker then shows that route
+    and its first departure. Their route is not known, so they are not hidden by a focus unless that trip is on another route.
+  - Terminals: `RoutePattern.first`/`last` are the stops most trips of a pattern start and end at; `setTerminals` rings
+    them (green start, red end) while one route is in focus.
   - Bus markers: the route name and the pattern number from the headsign ("D2") inside, the ring white for trip direction 1
     and black for 0 (mostly east/north and west/south), and a small letter beside it from the feed's `trip_direction_name`
     ("E", "W", "N", "S", "In", "Out"; loops have none). The feed's own `bearing` is not used: a bus changes it at every turn,
