@@ -167,11 +167,15 @@ struct ArrivalRow: View {
       HStack(spacing: 12) {
         RouteBadge(routeID: arrival.routeID)
         VStack(alignment: .leading, spacing: 2) {
-          Text(arrival.headsign.prettyHeadsign).font(.body).lineLimit(1)
-          HStack(spacing: 6) {
-            LiveStatus(arrival: arrival, showDelay: model.settings.values.showDelayDetails)
-            if let way = direction { Text("· \(way)").font(.caption).foregroundStyle(.secondary) }
+          // The way a bus goes (at a terminus, where both directions stop) sits after the destination, so that the line
+          // below keeps its room for the live status and the timetable time.
+          HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Text(arrival.headsign.prettyHeadsign).font(.body).lineLimit(1).layoutPriority(1)
+            if let way = direction { Text(way).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
           }
+          LiveStatus(
+            arrival: arrival, showDelay: model.settings.values.showDelayDetails,
+            scheduled: model.settings.values.showScheduledTimes ? text.clock(arrival.scheduled) : nil)
         }
         Spacer(minLength: 8)
         VStack(alignment: .trailing, spacing: 1) {

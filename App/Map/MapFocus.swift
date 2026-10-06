@@ -11,6 +11,10 @@ struct MapFocus: Equatable {
   var routes: Set<String> = []
   /// Direction of the single focused route (0 or 1); `nil` shows both.
   var direction: Int?
+  /// One destination of the focused route in that direction ("2-EPIC CAMPUS"), and the stops it serves; `nil` shows
+  /// every destination.
+  var headsign: String?
+  var headsignStops: Set<String> = []
   /// Stops to ring (for an alert about closed or moved stops).
   var highlightedStops: [String] = []
   /// Buses to ring, and why. When there are any, other buses are hidden (or dimmed).

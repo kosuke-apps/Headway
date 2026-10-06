@@ -38,6 +38,12 @@ the data the city publishes (see Data below), and bus times can differ from what
   asks which one you meant.
 - **Which way a bus goes.** Each bus shows its route and pattern ("D2"), a small letter for the way its trip runs
   ("E", "W", "N", "S") and a white or black ring (white for east- and northbound, black for west- and southbound).
+- **Which destination.** A route with several destinations in one direction (D1 to Junction, D2 to Epic Campus, ...) can be
+  narrowed to one of them from the chip over the map: its line, stops and buses are shown alone.
+- **Back to the list.** "Show on map" from an alert, a delay or the routes list leaves a back button on the chip over the
+  map, so you return to where you came from.
+- **Delays without losing the timetable.** A live bus shows how many minutes late or early it is, with the timetable's own
+  time next to it (it is never replaced); the full timetable marks live buses with +3 or −2 beside their minute.
 - **Which side of the street.** Stops of the same name on either side of a street are told apart: the stop sheet, search,
   planner steps and timetable say "Southbound" and so on, and an arrow beside each stop on the map shows the way. Each route and direction says how many buses are running, or why
   there are none (not running today, between trips), with the next trip.
@@ -89,8 +95,8 @@ installs it). A free Apple ID works; the app must be re-signed every 7 days.
 ## Quality checks
 
 ```bash
-swift test                                                       # data layer (124 tests)
+swift test                                                       # data layer (128 tests)
 xcodebuild test -project Headway.xcodeproj -scheme Headway \
-  -destination 'platform=iOS Simulator,name=iPhone 18 Pro' CODE_SIGNING_ALLOWED=NO   # app tests (42)
+  -destination 'platform=iOS Simulator,name=iPhone 18 Pro' CODE_SIGNING_ALLOWED=NO   # app tests (51)
 (cd collector && npm test)                                       # collector, in Cloudflare's runtime (9 tests)
 ```

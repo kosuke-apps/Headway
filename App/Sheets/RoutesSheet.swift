@@ -37,42 +37,57 @@ struct RoutesSheet: View {
     }
   }
 
-  /// How many buses are running, or why there are none: nothing here is an error.
-  private func statusLine(route: String, direction: Int?) -> some View {
+  /// How many buses are running, as a number to the right of the name; nothing when there are none (the reason goes
+  /// under the name instead).
+  @ViewBuilder private func count(route: String, direction: Int?) -> some View {
+    if case .buses(let number) = model.liveStatus(route: route, direction: direction).kind {
+      HStack(spacing: 3) {
+        Image(systemName: "bus.fill").font(.caption2)
+        Text("\(number)").monospacedDigit()
+      }
+      .font(.caption.weight(.semibold))
+      .foregroundStyle(.green)
+      .accessibilityElement(children: .ignore)
+      .accessibilityLabel(Text("\(number) buses now"))
+    }
+  }
+
+  /// Why there are no buses (not running today, between trips, ...): nothing is wrong, but it is worth a line.
+  @ViewBuilder private func reason(route: String, direction: Int?) -> some View {
     let status = model.liveStatus(route: route, direction: direction)
-    return Text(status.text)
-      .font(.caption)
-      .foregroundStyle(status.isRunning ? Color.green : Color.secondary)
-      .fixedSize(horizontal: false, vertical: true)
+    if !status.isRunning {
+      Text(status.text).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+    }
   }
 
   /// One route: a header that shows both directions, and one line per direction (they often use different streets).
+  /// The number of buses sits at the right of each line, so that a row takes two or three lines, not six.
   private func row(_ route: Route) -> some View {
     let hidden = model.settings.values.hiddenRoutes.contains(route.id)
     let variants = model.variants(of: route.id)
+    let focused = model.focus.routes == [route.id]
     return HStack(alignment: .top, spacing: 12) {
-      VStack(alignment: .leading, spacing: 8) {
+      VStack(alignment: .leading, spacing: 6) {
         Button {
           model.settings.setRoute(route.id, hidden: false)
           model.focusRoute(route.id)
           dismiss()
         } label: {
-          HStack(spacing: 12) {
+          HStack(alignment: .top, spacing: 12) {
             RouteBadge(routeID: route.id)
             VStack(alignment: .leading, spacing: 2) {
               HStack(spacing: 6) {
                 Text(route.longName.isEmpty ? String(localized: "Both directions") : route.longName).font(.subheadline).lineLimit(2)
+                  .foregroundStyle(focused && model.focus.direction == nil ? Color.blue : Color.primary)
                 if model.isWatching(route: route.id) { Image(systemName: "bell.fill").font(.caption2).foregroundStyle(.orange) }
+                Spacer(minLength: 4)
+                count(route: route.id, direction: nil)
               }
-              statusLine(route: route.id, direction: nil)
-              if let match = model.reliability(route: route.id, stop: nil) {
+              reason(route: route.id, direction: nil)
+              if model.liveStatus(route: route.id, direction: nil).isRunning, let match = model.reliability(route: route.id, stop: nil) {
                 Text("Usually \(Int((match.cell.onTimeShare * 100).rounded()))% on time right now").font(.caption).foregroundStyle(.secondary)
               }
-              if model.focus.routes == [route.id] {
-                Text(model.focus.direction == nil ? "Showing both directions" : "Showing one direction").font(.caption).foregroundStyle(.blue)
-              }
             }
-            Spacer(minLength: 0)
           }
           .contentShape(Rectangle())
         }
@@ -84,12 +99,16 @@ struct RoutesSheet: View {
             dismiss()
           } label: {
             VStack(alignment: .leading, spacing: 2) {
-              Label(model.directionTitle(route: route.id, direction: variant.direction), systemImage: model.directionSymbol(route: route.id, direction: variant.direction))
-                .font(.footnote)
-                .lineLimit(2)
-                .multilineTextAlignment(.leading)
-                .foregroundStyle(model.focus.routes == [route.id] && model.focus.direction == variant.direction ? Color.blue : Color.primary)
-              statusLine(route: route.id, direction: variant.direction).padding(.leading, 26)
+              HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Label(model.directionTitle(route: route.id, direction: variant.direction), systemImage: model.directionSymbol(route: route.id, direction: variant.direction))
+                  .font(.footnote)
+                  .lineLimit(1)
+                  .multilineTextAlignment(.leading)
+                  .foregroundStyle(focused && model.focus.direction == variant.direction ? Color.blue : Color.primary)
+                Spacer(minLength: 4)
+                count(route: route.id, direction: variant.direction)
+              }
+              reason(route: route.id, direction: variant.direction).padding(.leading, 26)
             }
             .padding(.leading, 46)
             .frame(maxWidth: .infinity, alignment: .leading)

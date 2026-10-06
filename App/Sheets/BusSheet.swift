@@ -79,6 +79,14 @@ struct BusSheet: View {
     .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 10)
   }
 
+  private func delayColor(_ delay: Int?) -> Color {
+    guard let delay else { return .secondary }
+    if delay > 300 { return .red }
+    if delay > 90 { return .orange }
+    if delay < -90 { return .blue }
+    return .secondary
+  }
+
   private func positionAge(_ vehicle: VehicleSample) -> String? {
     guard let timestamp = vehicle.timestamp else { return nil }
     let seconds = max(0, Int(Date().timeIntervalSince(timestamp)))
@@ -88,6 +96,9 @@ struct BusSheet: View {
   private func stopRow(_ eta: TripStopEta, text: TimeText, now: Date) -> some View {
     let stop = model.schedule?.stops[eta.stopID]
     let delay = eta.predicted.map { Int($0.timeIntervalSince(eta.scheduled).rounded()) }
+    // With timetable times on, the time at the right is the timetable's; how far the bus is from it, and when it now
+    // expects to arrive, are written under the stop's name instead of replacing it.
+    let detailed = model.settings.values.showDelayDetails && model.settings.values.showScheduledTimes
     return Button {
       model.selectStop(eta.stopID)
     } label: {
@@ -95,11 +106,17 @@ struct BusSheet: View {
         VStack(alignment: .leading, spacing: 2) {
           Text(stop?.name ?? eta.stopID).font(.body).lineLimit(1)
           if model.settings.values.showDelayDetails, let label = TimeText.delay(delay) {
-            Text(label).font(.caption).foregroundStyle(.secondary)
+            HStack(spacing: 4) {
+              Text(label).foregroundStyle(detailed ? delayColor(delay) : .secondary)
+              if detailed, eta.predicted != nil, abs(delay ?? 0) >= 60 {
+                Text("· Expected \(text.clock(eta.expected))").foregroundStyle(.secondary)
+              }
+            }
+            .font(.caption)
           }
         }
         Spacer(minLength: 8)
-        Text(text.clock(eta.expected)).font(.body.weight(.medium)).monospacedDigit()
+        Text(text.clock(detailed ? eta.scheduled : eta.expected)).font(.body.weight(.medium)).monospacedDigit()
       }
       .padding(.horizontal, 16).padding(.vertical, 10)
       .contentShape(Rectangle())

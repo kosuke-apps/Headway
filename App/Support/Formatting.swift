@@ -40,6 +40,14 @@ struct TimeText {
     return seconds > 0 ? String(localized: "\(minutes) min late") : String(localized: "\(minutes) min early")
   }
 
+  /// The mark next to a timetable minute for a bus that is `seconds` behind (positive) or ahead (negative) of it: "+3" for
+  /// three minutes late, "\u{2212}2" for two minutes early. Nothing within half a minute of the timetable.
+  static func delayMark(seconds: Int) -> (text: String, minutes: Int)? {
+    let minutes = Int((Double(seconds) / 60).rounded())
+    guard minutes != 0 else { return nil }
+    return (minutes > 0 ? "+\(minutes)" : "\u{2212}\(-minutes)", minutes)
+  }
+
   /// "10 min", "1 h", "1 h 30 min".
   static func minutesLabel(_ minutes: Int) -> String {
     if minutes < 60 { return String(localized: "\(minutes) min") }

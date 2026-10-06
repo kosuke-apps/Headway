@@ -77,6 +77,39 @@ private func makeNetworkSchedule() throws -> Schedule {
     #expect(network.stops(route: "Z", direction: 0).isEmpty)
   }
 
+  @Test func eachDestinationOfADirectionIsAPatternWithItsOwnStops() throws {
+    let west = network.patterns(of: "X", direction: 0)
+    #expect(west.map(\.headsign) == ["To Alpha", "To Airport"])  // most trips first
+    #expect(west.map(\.trips) == [2, 1])
+    // "To Alpha" runs B, C, A on its first trip and B, A on its second: the stops of all its trips.
+    #expect(Set(try #require(west.first).stops) == ["A", "B", "C"])
+    #expect(Set(try #require(west.last).stops) == ["A", "B"])
+    #expect(network.patterns(of: "X", direction: 1).map(\.headsign) == ["To Bravo"])
+    #expect(network.patterns(of: "X").count == 3)
+    #expect(network.patterns(of: "Z").isEmpty)
+  }
+
+  @Test func theNumberBeforeADashIsThePatternNumber() {
+    func pattern(_ headsign: String) -> RoutePattern { RoutePattern(route: "D", direction: 0, headsign: headsign, trips: 1, stops: []) }
+    #expect(pattern("2-EPIC CAMPUS").number == "2")
+    #expect(pattern("2-EPIC CAMPUS").destination == "EPIC CAMPUS")
+    #expect(pattern("1-JUNCTION VIA HIGH CROSSING").number == "1")
+    #expect(pattern("SEGOE").number == nil)
+    #expect(pattern("SEGOE").destination == "SEGOE")
+    #expect(pattern("UW-MADISON").number == nil)
+    #expect(pattern("UW-MADISON").destination == "UW-MADISON")
+  }
+
+  @Test func aCopySavedBeforePatternsExistStillDecodes() throws {
+    // The same network as saved by an older version: no "patterns" key.
+    var json = try #require(try JSONSerialization.jsonObject(with: JSONEncoder().encode(network)) as? [String: Any])
+    json.removeValue(forKey: "patterns")
+    let old = try JSONSerialization.data(withJSONObject: json)
+    let decoded = try JSONDecoder().decode(RouteNetwork.self, from: old)
+    #expect(decoded.patterns.isEmpty)
+    #expect(decoded.variants == network.variants)
+  }
+
   @Test func survivesEncodingAndDecoding() throws {
     let data = try JSONEncoder().encode(network)
     #expect(try JSONDecoder().decode(RouteNetwork.self, from: data) == network)

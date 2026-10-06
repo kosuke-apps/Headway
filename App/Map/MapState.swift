@@ -48,6 +48,8 @@ struct MapState {
   var vehiclePatterns: [String: String] = [:]
   /// The way each bus's trip runs as a letter ("E", "W", "N", "S"), written beside its marker.
   var vehicleHeadings: [String: String] = [:]
+  /// The destination ("2-EPIC CAMPUS") of each bus's trip, to show one destination of a route on its own.
+  var vehicleHeadsigns: [String: String] = [:]
   var prefs = MapPreferences()
   var focus = MapFocus()
   var selectedStop: String?

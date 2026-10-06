@@ -1,6 +1,7 @@
 import CoreLocation
 import HeadwayCore
 import MapLibre
+import os
 import SwiftUI
 
 /// What a tap on the map hit.
@@ -29,6 +30,10 @@ struct MapContainer: UIViewRepresentable {
     mapView.allowsRotating = false
     mapView.allowsTilting = false
     mapView.automaticallyAdjustsContentInset = false
+    // The credits sit a little in from the screen's rounded corners, level with each other.
+    let logo = mapView.logoViewMargins, info = mapView.attributionButtonMargins
+    mapView.logoViewMargins = CGPoint(x: logo.x + 10, y: logo.y)
+    mapView.attributionButtonMargins = CGPoint(x: info.x + 10, y: logo.y + (info.y - logo.y))
     let prefs = model.settings.values
     if prefs.rememberMapPosition, let lat = prefs.lastLatitude, let lon = prefs.lastLongitude {
       mapView.setCenter(CLLocationCoordinate2D(latitude: lat, longitude: lon), zoomLevel: prefs.lastZoom ?? 12, animated: false)
@@ -72,6 +77,7 @@ struct MapContainer: UIViewRepresentable {
     state.vehicleDirections = model.vehicleDirections
     state.vehiclePatterns = model.vehiclePatterns
     state.vehicleHeadings = model.vehicleHeadings
+    state.vehicleHeadsigns = model.vehicleHeadsigns
     state.prefs = MapPreferences(model.settings.values)
     state.focus = model.focus
     state.selectedStop = model.selectedStopID
@@ -81,7 +87,8 @@ struct MapContainer: UIViewRepresentable {
     state.locationAuthorized = model.location.isAuthorized
     state.alertRoutes = model.alertRouteIDs
     state.offRouteVehicles = model.offRouteVehicleIDs
-    if let journey = model.mapJourney {
+    // The journey is drawn only while its steps are open: folded into the bar at the bottom, the map shows the network.
+    if let journey = model.mapJourney, model.sheet == .journey {
       state.journeyID = journey.id
       state.journeyTrips = Set(journey.rides.map(\.tripID))
       let routes = model.orderedRoutes
@@ -179,7 +186,7 @@ final class MapCoordinator: NSObject, MLNMapViewDelegate, UIGestureRecognizerDel
       if old.vehicles != new.vehicles || old.prefs.hiddenRoutes != new.prefs.hiddenRoutes
         || old.selectedVehicle != new.selectedVehicle || old.offRouteVehicles != new.offRouteVehicles
         || old.focus != new.focus || old.vehicleDirections != new.vehicleDirections || old.vehiclePatterns != new.vehiclePatterns
-        || old.vehicleHeadings != new.vehicleHeadings || old.journeyID != new.journeyID
+        || old.vehicleHeadings != new.vehicleHeadings || old.vehicleHeadsigns != new.vehicleHeadsigns || old.journeyID != new.journeyID
         || old.schedule?.feedVersion != new.schedule?.feedVersion
       {
         if old.vehicles != new.vehicles || old.prefs.estimateBusPositions != new.prefs.estimateBusPositions
@@ -206,7 +213,9 @@ final class MapCoordinator: NSObject, MLNMapViewDelegate, UIGestureRecognizerDel
 
   private func buildLayers(style: MLNStyle) {
     guard let overlay = state.overlay else { return }
+    let began = CFAbsoluteTimeGetCurrent()
     let built = MapLayers(style: style, overlay: overlay)
+    launchLog.info("map layers built in \(Int((CFAbsoluteTimeGetCurrent() - began) * 1000)) ms")
     layers = built
     appliedOverlay = overlay.identity
     built.applyStyle(state)

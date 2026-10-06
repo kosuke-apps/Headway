@@ -149,6 +149,23 @@ import Testing
     #expect(branchLength < 700)
   }
 
+  @Test func simplifyingKeepsTheEndsAndTheCorners() {
+    // A straight street of 20 points, then a turn north.
+    let east = street(-89.40, -89.394)
+    let corner = east.last!
+    let north = (1...5).map { Coordinate(latitude: 43.0 + Double($0) * 0.0003, longitude: corner.longitude) }
+    let path = east + north
+    let slim = RouteBundler.simplified(path, tolerance: 1)
+    #expect(slim.count == 3)
+    #expect(slim.first == path.first && slim.last == path.last)
+    #expect(slim.contains(corner))
+    // A wiggle bigger than the tolerance stays.
+    var wiggle = street(-89.40, -89.394)
+    wiggle[10] = Coordinate(latitude: 43.0002, longitude: wiggle[10].longitude)
+    #expect(RouteBundler.simplified(wiggle, tolerance: 1).contains(wiggle[10]))
+    #expect(RouteBundler.simplified(Array(path.prefix(2)), tolerance: 1).count == 2)
+  }
+
   @Test func theRealFeedGivesFewLongLanes() throws {
     guard let url = RealFeedTests.zip else { return }
     let schedule = try Schedule.load(zipAt: url)
@@ -163,10 +180,11 @@ import Testing
       zip(line.coordinates, line.coordinates.dropFirst()).reduce(0) { $0 + Geometry.distance(from: $1.0, to: $1.1) }
     }
     let total = result.reduce(0) { $0 + meters($1) }
-    let whole = result.filter { ($0.lane * 2 == ($0.lane * 2).rounded()) && $0.crowd == $0.crowd.rounded() }  // not in a slide
-    let pieces = Double(whole.count)
-    print("bundling: \(result.count) pieces, \(Int(total / 1000)) km, \(Int(total / pieces)) m per piece")
-    #expect(total / pieces > 300, "lanes should last hundreds of metres, not a few steps")
+    let long = result.filter { meters($0) >= 150 }.reduce(0) { $0 + meters($1) }
+    print("bundling: \(result.count) pieces, \(Int(total / 1000)) km, \(Int(100 * long / total))% of it in pieces of 150 m or more")
+    #expect(long / total > 0.85, "lanes should last hundreds of metres, not a few steps")
+    // Every piece is a feature the map reads and draws at launch: slides in steps of a few metres were 40 000 of them.
+    #expect(result.count < 15_000, "slides must be a few steps, not one per few metres")
     #expect(result.allSatisfy { abs($0.lane) <= 6 })
   }
 }
