@@ -165,6 +165,29 @@ private func makeLineSchedule() throws -> Schedule {
     #expect(try #require(table.match(route: "A", stop: nil, at: monday(17), in: zone)).scope == .route)
   }
 
+  @Test func hourlyListsTheHoursWithEnoughObservations() {
+    let table = table()
+    #expect(table.hourly(route: "A", dayType: .weekday).map(\.hour) == [17, 18])
+    #expect(table.hourly(route: "B", dayType: .weekday).isEmpty)  // 5 observations: too few
+    #expect(table.hourly(route: "A", dayType: .saturday).isEmpty)
+  }
+
+  @Test func aStopsBlockCoversBothItsHours() {
+    // Hour 17 is in the block of hours 16 and 17; "s1" has 20 observations there, "s2" only 4.
+    let slices = table().hourly(route: "A", stop: "s1", dayType: .weekday)
+    #expect(slices.map(\.hour) == [16, 17])
+    #expect(slices.allSatisfy { $0.cell.n == 20 })
+    #expect(table().hourly(route: "A", stop: "s2", dayType: .weekday).isEmpty)
+  }
+
+  @Test func totalsAddUpTheHoursAndCountAStopsBlockOnce() throws {
+    let route = try #require(table().totals(route: "A", dayType: .weekday))
+    #expect(route.n == 300 && route.early == 15 && route.late == 50 && route.onTime == 235)
+    let stop = try #require(table().totals(route: "A", stop: "s1", dayType: .weekday))
+    #expect(stop.n == 20 && stop.early == 8 && stop.late == 2)
+    #expect(table().totals(route: "B", dayType: .weekday) == nil)
+  }
+
   @Test func usesANeighbouringHourWhenTheHourIsMissing() throws {
     // 19:30 has no cell, 18 is the neighbour with enough data.
     let match = try #require(table().match(route: "A", stop: nil, at: monday(19), in: zone))

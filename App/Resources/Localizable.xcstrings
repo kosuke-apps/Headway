@@ -4357,6 +4357,237 @@
           }
         }
       }
+    },
+    "Punctuality": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "定時性"
+          }
+        }
+      }
+    },
+    "Where": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "範囲"
+          }
+        }
+      }
+    },
+    "This stop": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この停留所"
+          }
+        }
+      }
+    },
+    "Whole route": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "路線全体"
+          }
+        }
+      }
+    },
+    "Not enough history for this yet. Headway keeps recording, so it fills in as days go by.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "履歴がまだ足りません。Headway は記録を続けているので、日が経つにつれて増えていきます。"
+          }
+        }
+      }
+    },
+    "By hour of the day": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "時間帯ごと"
+          }
+        }
+      }
+    },
+    "Figures for a stop come in two-hour blocks, so the bars of a block are equal.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "停留所の数字は2時間ごとのまとまりなので、同じまとまりの棒は同じ高さになります。"
+          }
+        }
+      }
+    },
+    "How far from the timetable": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "時刻表とのずれ"
+          }
+        }
+      }
+    },
+    "The bar spans where 8 of 10 buses were (from the 10th to the 90th percentile); the dot is the middle bus. Below the line the bus was early, above it late.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "棒は10台中8台が収まった範囲(下位10%〜上位10%)、点は真ん中のバスです。線より下は早く、上は遅れて着いたことを表します。"
+          }
+        }
+      }
+    },
+    "About these numbers": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この数字について"
+          }
+        }
+      }
+    },
+    "Early means more than a minute before the timetable (a rider who arrives on time misses the bus), late more than five minutes after it. The numbers come from recorded bus positions compared with the timetable.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「早い」は時刻表より1分以上前(時刻どおりに着いた人は乗り遅れます)、「遅れ」は5分以上後です。記録したバスの位置を時刻表と比べた数字です。"
+          }
+        }
+      }
+    },
+    "All day": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1日全体"
+          }
+        }
+      }
+    },
+    "%lld arrivals over the whole day": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1日で%lld回の到着"
+          }
+        }
+      }
+    },
+    "Touch a bar for the details of that hour.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "棒に触れると、その時間帯の詳細が出ます。"
+          }
+        }
+      }
+    },
+    "on time": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "定時"
+          }
+        }
+      }
+    },
+    "min": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "分"
+          }
+        }
+      }
+    },
+    "+%lld min": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+%lld分"
+          }
+        }
+      }
+    },
+    "−%lld min": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "−%lld分"
+          }
+        }
+      }
+    },
+    "%lld days recorded (%@ to %@). %lld arrivals in all. Only hours with enough arrivals are drawn.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld日分を記録(%@〜%@)。到着は合計%lld回。到着数が十分な時間帯だけ描いています。"
+          }
+        }
+      }
+    },
+    "Only %lld days have been recorded so far, so these numbers are rough.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "記録は%lld日分だけなので、この数字は目安です。"
+          }
+        }
+      }
+    },
+    "%lld% early · %lld% on time · %lld% late": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "早い%lld% · 定時%lld% · 遅れ%lld%"
+          }
+        }
+      }
     }
   }
 }

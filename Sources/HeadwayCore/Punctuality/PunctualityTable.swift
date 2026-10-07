@@ -150,6 +150,58 @@ public struct PunctualityTable: Sendable, Codable {
     return nil
   }
 
+  /// One hour of the day with the statistics for it.
+  public struct HourSlice: Sendable, Hashable, Identifiable {
+    public var id: Int { hour }
+    public let hour: Int
+    public let cell: PunctualityCell
+  }
+
+  /// The route's statistics hour by hour for one kind of day (hours with too few observations are left out), or the
+  /// stop's when `stop` is given: those are kept in two-hour blocks, so both hours of a block carry the block's cell.
+  public func hourly(route: String, stop: String? = nil, dayType: DayType) -> [HourSlice] {
+    var slices: [HourSlice] = []
+    for hour in 0..<24 {
+      let cell: PunctualityCell?
+      if let stop {
+        cell = stopCells[Self.stopKey(route: route, stop: stop, dayType: dayType, hour: hour)].flatMap { $0.n >= Self.minimumStop ? $0 : nil }
+      } else {
+        cell = routeCells[Self.routeKey(route: route, dayType: dayType, hour: hour)].flatMap { $0.n >= Self.minimumRoute ? $0 : nil }
+      }
+      if let cell { slices.append(HourSlice(hour: hour, cell: cell)) }
+    }
+    return slices
+  }
+
+  /// Counts over a whole kind of day.
+  public struct Totals: Sendable, Hashable {
+    public let n: Int
+    public let early: Int
+    public let late: Int
+    public var onTime: Int { n - early - late }
+    public var earlyShare: Double { n == 0 ? 0 : Double(early) / Double(n) }
+    public var lateShare: Double { n == 0 ? 0 : Double(late) / Double(n) }
+    public var onTimeShare: Double { n == 0 ? 0 : Double(onTime) / Double(n) }
+  }
+
+  /// All the observations of a route (or of a stop) on one kind of day, added up from the hours that have enough of them.
+  /// A stop's two-hour block is counted once.
+  public func totals(route: String, stop: String? = nil, dayType: DayType) -> Totals? {
+    var cells: [PunctualityCell] = []
+    if let stop {
+      for block in 0..<12 {
+        if let cell = stopCells[Self.stopKey(route: route, stop: stop, dayType: dayType, hour: block * 2)], cell.n >= Self.minimumStop {
+          cells.append(cell)
+        }
+      }
+    } else {
+      cells = hourly(route: route, dayType: dayType).map(\.cell)
+    }
+    let n = cells.reduce(0) { $0 + $1.n }
+    guard n > 0 else { return nil }
+    return Totals(n: n, early: cells.reduce(0) { $0 + $1.early }, late: cells.reduce(0) { $0 + $1.late })
+  }
+
   /// The range around a predicted arrival that the bus has reached 90% of the time, as offsets in seconds from the
   /// prediction (the first is usually negative: the earliest the bus may come). `nil` without enough data.
   public func window(predictedIn seconds: TimeInterval) -> (earliest: TimeInterval, latest: TimeInterval)? {

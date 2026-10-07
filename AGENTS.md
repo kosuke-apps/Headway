@@ -72,6 +72,15 @@ The author's general workspace rules (outside this repository) apply too; this f
     drawn by their own layers (`bus-idle-*`, pale with an orange ring and "!"); `BusNextTrip.of` finds the trip the trip
     updates list for the same bus (`feedanalysis layover` shows it on a recording), and the marker then shows that route
     and its first departure. Their route is not known, so they are not hidden by a focus unless that trip is on another route.
+  - Punctuality detail: `PunctualityDetail` (opened from the bars in `StopSheet` through `PunctualityTarget`) draws
+    `PunctualityTable.hourly` / `totals` with Swift Charts. Chart pitfalls met here: bars with both ends on both axes must be
+    `RectangleMark` (`BarMark` has no such form, and the compiler then says only "failed to produce diagnostic"); a numeric
+    axis needs `Double` on every mark, scale and rule (an `Int` domain with `Double` values draws nothing); `width: .ratio`
+    needs a category axis.
+  - Colours: lateness is red / green / blue and alerts are orange, so the first and last stop of a route are purple and
+    black (white on the dark map), and favourite stops are solid dots (`fav` / `size` attributes of the stop layer), not a
+    second ring. The map's credits are placed by `MapCoordinator.placeCredits` from the home-bar inset (nothing is changed
+    on a phone with a flat bottom edge).
   - Terminals: `RoutePattern.first`/`last` are the stops most trips of a pattern start and end at; `setTerminals` rings
     them (green start, red end) while one route is in focus.
   - Bus markers: the route name and the pattern number from the headsign ("D2") inside, the ring white for trip direction 1

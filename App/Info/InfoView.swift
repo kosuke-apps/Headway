@@ -26,7 +26,10 @@ struct InfoView: View {
       }
       }
     }
-    .onAppear { model.refreshStatus() }
+    .onAppear {
+      model.refreshStatus()
+      model.ensurePredictions()
+    }
   }
 
   // MARK: Summary
@@ -46,7 +49,7 @@ struct InfoView: View {
         // Three square tiles: the symbol, then the number. Each with something behind it is a button: alerts jump to the
         // list below, late and early buses are shown on the map.
         let alerts = model.visibleActiveAlerts.count
-        HStack(spacing: 10) {
+        SquareRow(spacing: 10) {
           Button { withAnimation { proxy.scrollTo("alerts", anchor: .top) } } label: {
             SummaryTile(symbol: "exclamationmark.triangle.fill", tint: .orange, number: alerts, caption: "Alerts")
           }
@@ -193,13 +196,13 @@ private struct SummaryTile: View {
   var body: some View {
     // Nothing to see (no alerts, no late routes) is quiet grey rather than a warning colour.
     let colour = number > 0 ? tint : Color.secondary
-    VStack(spacing: 4) {
+    VStack(spacing: 6) {
       Image(systemName: symbol).font(.title2).foregroundStyle(colour)
       Text("\(number)").font(.title.weight(.bold)).monospacedDigit().foregroundStyle(number > 0 ? Color.primary : Color.secondary)
-      Text(caption).font(.caption2).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.7)
+      Text(caption).font(.caption2).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.6)
     }
-    .frame(maxWidth: .infinity)
-    .aspectRatio(1, contentMode: .fit)
+    .padding(8)
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
     .background(colour.opacity(0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     .accessibilityElement(children: .ignore)

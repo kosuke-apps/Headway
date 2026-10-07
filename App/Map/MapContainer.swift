@@ -129,8 +129,6 @@ final class MapCoordinator: NSObject, MLNMapViewDelegate, UIGestureRecognizerDel
   var onCameraIdle: ((Double, Double, Double) -> Void)?
 
   private weak var mapView: MLNMapView?
-  private var defaultLogoMargins: CGPoint?
-  private var defaultInfoMargins: CGPoint?
   private var creditsBottomInset: CGFloat = -1
   private var layers: MapLayers?
   private var state = MapState()
@@ -217,23 +215,19 @@ final class MapCoordinator: NSObject, MLNMapViewDelegate, UIGestureRecognizerDel
   }
 
   /// Puts the map's credits (the logo and the "i") where the screen's shape wants them. On a phone with rounded corners
-  /// and a home bar they sit low and in from the corners, level with the bar, so that they look the same on both sides;
-  /// on one with a flat bottom edge they stay where MapLibre puts them.
+  /// and a home bar they sit the same distance in from each side, level with each other, a little above the home bar's
+  /// strip (their middles about 36 points above the bottom edge), so that the two look alike next to the curves of the
+  /// corners; on one with a flat bottom edge they stay where MapLibre puts them.
   func placeCredits(on mapView: MLNMapView) {
     let bottom = mapView.window?.safeAreaInsets.bottom ?? 0
-    guard bottom != creditsBottomInset else { return }
+    guard bottom > 0, mapView.bounds.width > 0, bottom != creditsBottomInset else { return }
+    let logoSize = mapView.logoView.frame.size, infoSize = mapView.attributionButton.frame.size
+    guard logoSize.height > 0, infoSize.height > 0 else { return }
     creditsBottomInset = bottom
-    let logo = defaultLogoMargins ?? mapView.logoViewMargins
-    let info = defaultInfoMargins ?? mapView.attributionButtonMargins
-    defaultLogoMargins = logo
-    defaultInfoMargins = info
-    if bottom > 0 {
-      mapView.logoViewMargins = CGPoint(x: logo.x + 14, y: logo.y - (bottom - 2))
-      mapView.attributionButtonMargins = CGPoint(x: info.x + 14, y: info.y - (bottom - 2))
-    } else {
-      mapView.logoViewMargins = logo
-      mapView.attributionButtonMargins = info
-    }
+    let side: CGFloat = 24, middle: CGFloat = 36
+    // MapLibre measures the margins from the edge of the safe area.
+    mapView.logoViewMargins = CGPoint(x: side, y: middle - logoSize.height / 2 - bottom)
+    mapView.attributionButtonMargins = CGPoint(x: side, y: middle - infoSize.height / 2 - bottom)
   }
 
   private func buildLayers(style: MLNStyle) {

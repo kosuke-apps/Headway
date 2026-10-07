@@ -42,6 +42,9 @@ the data the city publishes (see Data below), and bus times can differ from what
   route (of each direction, of each destination) and colour them: red late (over 5 minutes), green on time, blue early
   (over 2 minutes). A route with an alert has a triangle. Tapping the bar over the map ("Live · 126 buses") opens the
   same for the whole network, with a refresh button.
+- **The history behind a percentage.** Touching a punctuality bar ("Usually at this stop") opens a screen with hour-by-hour
+  charts for weekdays, Saturdays or Sundays, for the stop or the whole route: the share of early, on-time and late arrivals,
+  and how far from the timetable most buses were. Touch a bar for the numbers of that hour.
 - **Buses that are not on a trip** (out of service, or waiting at a terminal) are pale with an orange ring and a "!", so
   that nobody boards one by mistake; when the city already lists the trip a bus will run next, the marker shows that route
   and its departure time, and the bus's sheet says where it starts.
@@ -104,7 +107,7 @@ installs it). A free Apple ID works; the app must be re-signed every 7 days.
 ## Quality checks
 
 ```bash
-swift test                                                       # data layer (133 tests)
+swift test                                                       # data layer (136 tests)
 xcodebuild test -project Headway.xcodeproj -scheme Headway \
   -destination 'platform=iOS Simulator,name=iPhone 18 Pro' CODE_SIGNING_ALLOWED=NO   # app tests (51)
 (cd collector && npm test)                                       # collector, in Cloudflare's runtime (9 tests)

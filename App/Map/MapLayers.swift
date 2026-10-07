@@ -16,7 +16,6 @@ final class MapLayers {
 
   private let routeSource: MLNShapeSource
   private let stopSource: MLNShapeSource
-  private let favoriteSource: MLNShapeSource
   private let selectedStopSource: MLNShapeSource
   private let highlightStopSource: MLNShapeSource
   private let busSource: MLNShapeSource
@@ -25,7 +24,6 @@ final class MapLayers {
   private var casings: [String: MLNLineStyleLayer] = [:]
   private var lines: [String: MLNLineStyleLayer] = [:]
   private let stopLayer: MLNCircleStyleLayer
-  private let favoriteLayer: MLNCircleStyleLayer
   private let selectedStopLayer: MLNCircleStyleLayer
   private let stopNames: MLNSymbolStyleLayer
   private let stopArrows: MLNSymbolStyleLayer
@@ -84,7 +82,6 @@ final class MapLayers {
     }
     routeSource = MLNShapeSource(identifier: "routes", features: polylines, options: nil)
     stopSource = MLNShapeSource(identifier: "stops", features: [], options: nil)
-    favoriteSource = MLNShapeSource(identifier: "favorite-stops", features: [], options: nil)
     selectedStopSource = MLNShapeSource(identifier: "selected-stop", features: [], options: nil)
     highlightStopSource = MLNShapeSource(identifier: "highlight-stops", features: [], options: nil)
     busSource = MLNShapeSource(identifier: "buses", features: [], options: nil)
@@ -92,7 +89,7 @@ final class MapLayers {
     journeyPointSource = MLNShapeSource(identifier: "journey-points", features: [], options: nil)
     selectedBusSource = MLNShapeSource(identifier: "selected-bus", features: [], options: nil)
     terminalSource = MLNShapeSource(identifier: "terminals", features: [], options: nil)
-    for source in [routeSource, stopSource, favoriteSource, selectedStopSource, highlightStopSource, terminalSource, busSource, selectedBusSource, journeySource, journeyPointSource] {
+    for source in [routeSource, stopSource, selectedStopSource, highlightStopSource, terminalSource, busSource, selectedBusSource, journeySource, journeyPointSource] {
       style.addSource(source)
     }
     style.setImage(Self.arrowImage(), forName: "route-arrow")
@@ -120,8 +117,6 @@ final class MapLayers {
 
     stopLayer = MLNCircleStyleLayer(identifier: Self.stopLayerID, source: stopSource)
     Self.insertBelowLabels(stopLayer, in: style)
-    favoriteLayer = MLNCircleStyleLayer(identifier: "favorite-stops", source: favoriteSource)
-    Self.insertBelowLabels(favoriteLayer, in: style)
     selectedStopLayer = MLNCircleStyleLayer(identifier: "selected-stop", source: selectedStopSource)
     Self.insertBelowLabels(selectedStopLayer, in: style)
     highlightStopLayer = MLNCircleStyleLayer(identifier: "highlight-stops", source: highlightStopSource)
@@ -295,6 +290,15 @@ final class MapLayers {
     return NSExpression(format: "mgl_interpolate:withCurveType:parameters:stops:($zoomLevel, 'linear', nil, %@)", stops as NSDictionary)
   }
 
+  /// A zoom curve whose values are multiplied by the feature's own `size` (1 for most stops, more for favourites).
+  private static func stopScaled(_ sizes: [Double: Double]) -> NSExpression {
+    var stops: [NSNumber: NSExpression] = [:]
+    for (zoom, size) in sizes {
+      stops[NSNumber(value: zoom)] = NSExpression(forFunction: "multiply:by:", arguments: [NSExpression(forKeyPath: "size"), NSExpression(forConstantValue: size)])
+    }
+    return NSExpression(format: "mgl_interpolate:withCurveType:parameters:stops:($zoomLevel, 'linear', nil, %@)", stops as NSDictionary)
+  }
+
   private static func ramp(_ stops: [Double: Double]) -> NSExpression {
     NSExpression(
       format: "mgl_interpolate:withCurveType:parameters:stops:($zoomLevel, 'linear', nil, %@)", stops as NSDictionary)
@@ -426,7 +430,8 @@ final class MapLayers {
     idleTag.minimumZoomLevel = 12.8
 
     // The first and last stop of the route in focus.
-    for (layer, color, scale) in [(terminalStartLayer, UIColor.systemGreen, 1.0), (terminalEndLayer, UIColor.systemRed, 0.72)] {
+    // Purple and black (white on the dark map): colours the lateness numbers (red, green, blue) and alerts (orange) do not use.
+    for (layer, color, scale) in [(terminalStartLayer, UIColor.systemPurple, 1.0), (terminalEndLayer, theme.stopStroke, 0.72)] {
       layer.circleColor = NSExpression(forConstantValue: UIColor.clear)
       layer.circleStrokeColor = NSExpression(forConstantValue: color)
       layer.circleStrokeWidth = NSExpression(forConstantValue: 3.5)
@@ -446,20 +451,17 @@ final class MapLayers {
 
     // Stops
     stopLayer.isVisible = prefs.stopVisibility != .hidden
-    stopLayer.circleColor = NSExpression(forConstantValue: theme.stopFill)
+    // A favourite stop is the same dot, solid and a little larger: it stands out without a second symbol, and it fades
+    // with the other stops when zoomed out.
+    stopLayer.circleColor = NSExpression(format: "TERNARY(fav == 1, %@, %@)", theme.stopStroke, theme.stopFill)
     stopLayer.circleStrokeColor = NSExpression(forConstantValue: theme.stopStroke)
     stopLayer.circleStrokeWidth = NSExpression(forConstantValue: 1.25)
-    stopLayer.circleRadius = Self.ramp([11: 1.6, 14: 3.2, 17: 6])
+    stopLayer.circleRadius = Self.stopScaled([11: 1.6, 14: 3.2, 17: 6])
     switch prefs.stopVisibility {
     case .always: stopLayer.circleOpacity = Self.ramp([9: 0.7, 11: 1])
     default: stopLayer.circleOpacity = Self.ramp([11.5: 0, 13: 1])
     }
     stopLayer.circleStrokeOpacity = stopLayer.circleOpacity
-
-    favoriteLayer.circleColor = NSExpression(forConstantValue: UIColor.clear)
-    favoriteLayer.circleStrokeColor = NSExpression(forConstantValue: UIColor.systemOrange)
-    favoriteLayer.circleStrokeWidth = NSExpression(forConstantValue: 2.5)
-    favoriteLayer.circleRadius = Self.ramp([10: 4, 14: 7, 17: 10])
 
     highlightStopLayer.circleColor = NSExpression(forConstantValue: UIColor.systemOrange.withAlphaComponent(0.25))
     highlightStopLayer.circleStrokeColor = NSExpression(forConstantValue: UIColor.systemOrange)
@@ -580,6 +582,7 @@ final class MapLayers {
       if focus.headsign != nil, !focus.headsignStops.isEmpty { focusedStops = focus.headsignStops }
       focusedStops?.formUnion(focus.highlightedStops)
     }
+    let favorites = Set(state.prefs.favoriteStops)
     var features: [MLNPointFeature] = []
     features.reserveCapacity(overlay.data.stops.count)
     for stop in overlay.data.stops {
@@ -591,20 +594,14 @@ final class MapLayers {
       }
       let point = MLNPointFeature()
       point.coordinate = CLLocationCoordinate2D(latitude: stop.latitude, longitude: stop.longitude)
-      var attributes: [String: Any] = ["id": stop.id, "name": stop.name]
+      let favourite = favorites.contains(stop.id)
+      var attributes: [String: Any] = ["id": stop.id, "name": stop.name, "fav": favourite ? 1 : 0, "size": favourite ? 1.35 : 1.0]
       // The arrow image points east (90 degrees); the map turns it to the stop's bearing.
       if let facing = stop.facing { attributes["rotate"] = Double(facing - 90) }
       point.attributes = attributes
       features.append(point)
     }
     stopSource.shape = MLNShapeCollectionFeature(shapes: features)
-
-    let favorites = state.prefs.favoriteStops.filter { focusedStops?.contains($0) ?? true }.compactMap { overlay.stops[$0] }.map { stop -> MLNPointFeature in
-      let point = MLNPointFeature()
-      point.coordinate = CLLocationCoordinate2D(latitude: stop.latitude, longitude: stop.longitude)
-      return point
-    }
-    favoriteSource.shape = MLNShapeCollectionFeature(shapes: favorites)
 
     let highlighted = focus.highlightedStops.compactMap { overlay.stops[$0] }.map { stop -> MLNPointFeature in
       let point = MLNPointFeature()

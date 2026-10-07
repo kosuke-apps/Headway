@@ -352,11 +352,11 @@ private struct FocusChip: View {
   private var legend: some View {
     HStack(spacing: 10) {
       HStack(spacing: 4) {
-        Circle().strokeBorder(Color.green, lineWidth: 2).frame(width: 9, height: 9)
+        Circle().strokeBorder(Color.purple, lineWidth: 2).frame(width: 9, height: 9)
         Text("First stop")
       }
       HStack(spacing: 4) {
-        Circle().strokeBorder(Color.red, lineWidth: 2).frame(width: 9, height: 9)
+        Circle().strokeBorder(Color.primary, lineWidth: 2).frame(width: 9, height: 9)
         Text("Last stop")
       }
     }
