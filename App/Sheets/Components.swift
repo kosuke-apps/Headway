@@ -71,7 +71,8 @@ struct LiveStatus: View {
 }
 
 /// How many buses a route (one direction, one destination) has on the road, and how many of them are late (red), on
-/// time (green) and early (blue). Nothing when there are none.
+/// time (green) and early (blue), as coloured numbers: a number inside a coloured capsule is squeezed at larger text
+/// sizes. Nothing when there are none.
 struct FleetCounts: View {
   @Environment(AppModel.self) private var model
   let route: String
@@ -81,26 +82,49 @@ struct FleetCounts: View {
   var body: some View {
     let fleet = model.fleet(route: route, direction: direction, headsign: headsign)
     if fleet.total > 0 {
-      HStack(spacing: 4) {
+      HStack(spacing: 8) {
         HStack(spacing: 3) {
           Image(systemName: "bus.fill").font(.caption2)
           Text("\(fleet.total)").monospacedDigit()
         }
         .font(.caption.weight(.semibold))
         .foregroundStyle(.secondary)
-        pill(fleet.late, .red)
-        pill(fleet.onTime, .green)
-        pill(fleet.early, .blue)
+        number(fleet.late, .red)
+        number(fleet.onTime, .green)
+        number(fleet.early, .blue)
       }
+      .fixedSize()
       .accessibilityElement(children: .ignore)
       .accessibilityLabel(Text("\(fleet.total) buses, \(fleet.late) late, \(fleet.onTime) on time, \(fleet.early) early"))
     }
   }
 
-  @ViewBuilder private func pill(_ number: Int, _ color: Color) -> some View {
-    if number > 0 {
-      Text("\(number)").font(.caption2.weight(.bold)).monospacedDigit().foregroundStyle(.white)
-        .padding(.horizontal, 5).padding(.vertical, 1.5).background(color, in: Capsule())
+  @ViewBuilder private func number(_ count: Int, _ color: Color) -> some View {
+    if count > 0 {
+      Text("\(count)").font(.footnote.weight(.heavy)).monospacedDigit().foregroundStyle(color)
+    }
+  }
+}
+
+/// Puts three views in a row as equal squares that fill the width, with the same gap between them.
+struct SquareRow: Layout {
+  var spacing: CGFloat = 10
+
+  private func side(_ width: CGFloat, count: Int) -> CGFloat {
+    max(0, (width - spacing * CGFloat(max(0, count - 1))) / CGFloat(max(1, count)))
+  }
+
+  func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+    let width = proposal.width ?? 300
+    return CGSize(width: width, height: side(width, count: subviews.count))
+  }
+
+  func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+    let side = side(bounds.width, count: subviews.count)
+    for (index, view) in subviews.enumerated() {
+      view.place(
+        at: CGPoint(x: bounds.minX + CGFloat(index) * (side + spacing), y: bounds.minY), anchor: .topLeading,
+        proposal: ProposedViewSize(width: side, height: side))
     }
   }
 }

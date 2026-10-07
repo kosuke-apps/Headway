@@ -16,6 +16,7 @@ struct StopSheet: View {
         }
         .navigationBarHidden(true)
         .navigationDestination(for: String.self) { id in TimetableView(stopID: id) }
+        .navigationDestination(for: PunctualityTarget.self) { PunctualityDetail(target: $0) }
       } else {
         ContentUnavailableView("Stop not found", systemImage: "mappin.slash")
       }
@@ -133,7 +134,12 @@ extension StopSheet {
     let matches = routes.compactMap { route in model.reliability(route: route, stop: stopID).map { (route, $0) } }
     if !matches.isEmpty {
       Section {
-        ForEach(matches, id: \.0) { route, match in ReliabilityRow(routeID: route, match: match) }
+        // Touching a graph opens the history behind it.
+        ForEach(matches, id: \.0) { route, match in
+          NavigationLink(value: PunctualityTarget(route: route, stop: stopID, dayType: match.dayType, wholeRoute: match.scope == .route)) {
+            ReliabilityRow(routeID: route, match: match)
+          }
+        }
       } header: {
         Text("Usually at this stop")
       } footer: {
