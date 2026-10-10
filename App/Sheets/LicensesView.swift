@@ -66,7 +66,11 @@ struct LicensesView: View {
       }
       Section {
         ForEach(LicenseEntry.all) { entry in
-          NavigationLink(value: entry) {
+          // A link that carries its own destination: a value-based link needs a registered destination somewhere up the
+          // stack, and the Settings sheet already reaches this screen through a link of its own.
+          NavigationLink {
+            LicenseText(entry: entry)
+          } label: {
             VStack(alignment: .leading, spacing: 2) {
               Text(entry.name)
               Text("\(Text(entry.purpose)) · \(entry.licence)").font(.footnote).foregroundStyle(.secondary)
@@ -81,7 +85,6 @@ struct LicensesView: View {
     }
     .navigationTitle("Licences")
     .navigationBarTitleDisplayMode(.inline)
-    .navigationDestination(for: LicenseEntry.self) { LicenseText(entry: $0) }
   }
 }
 
