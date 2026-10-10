@@ -28,3 +28,6 @@ collector/.dev.vars
 
 # Machine-specific build settings
 Config/Local.xcconfig
+
+# Private notes of the author's tooling
+.label.toml
