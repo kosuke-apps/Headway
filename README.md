@@ -48,8 +48,8 @@ the data the city publishes (see Data below), and bus times can differ from what
 - **Buses that are not on a trip** (out of service, or waiting at a terminal) are pale with an orange ring and a "!", so
   that nobody boards one by mistake; when the city already lists the trip a bus will run next, the marker shows that route
   and its departure time, and the bus's sheet says where it starts.
-- **First and last stop.** A route looked at on its own rings its first stop in green and its last in red; with several
-  destinations in a direction, each end says which pattern it belongs to ("D1", "D2").
+- **First and last stop.** A route looked at on its own rings its first stop in purple and its last in black (white on
+  the dark map); with several destinations in a direction, each end says which pattern it belongs to ("D1", "D2").
 - **Which destination.** A route with several destinations in one direction (D1 to Junction, D2 to Epic Campus, ...) can be
   narrowed to one of them from the chip over the map: its line, stops and buses are shown alone.
 - **Back to the list.** "Show on map" from an alert, a delay or the routes list leaves a back button on the chip over the
@@ -71,6 +71,22 @@ the data the city publishes (see Data below), and bus times can differ from what
 - Honest about data: a clock icon marks times that come only from the timetable.
 
 Status: working prototype. It runs on an iPhone 12 Pro (free Personal Team signing) and in the iOS Simulator.
+
+## Permissions
+
+- **Location (While Using the App)**: to show where you are on the map, find nearby stops and plan from where you are.
+  It stays on the phone. Everything else works without it.
+- **Notifications** (optional): to tell you that a watched route is late, early or has an alert, and when to leave.
+  They are local; there is no push server.
+- **Background refresh** (optional): lets iOS wake the app now and then to check the routes you watch.
+
+The only network requests are to the City of Madison's public feeds and, when you search for a place by name, to Apple
+Maps. See [PRIVACY.md](PRIVACY.md).
+
+## Installing
+
+Headway is not on the App Store. There is no download to install: you build it with Xcode and put it on your own iPhone
+(or the simulator) as described below. With a free Apple ID the app has to be signed again every 7 days.
 
 ## Getting started
 
@@ -109,6 +125,19 @@ installs it). A free Apple ID works; the app must be re-signed every 7 days.
 ```bash
 swift test                                                       # data layer (136 tests)
 xcodebuild test -project Headway.xcodeproj -scheme Headway \
-  -destination 'platform=iOS Simulator,name=iPhone 18 Pro' CODE_SIGNING_ALLOWED=NO   # app tests (51)
+  -destination 'platform=iOS Simulator,name=iPhone 18 Pro' CODE_SIGNING_ALLOWED=NO   # app tests (54)
 (cd collector && npm test)                                       # collector, in Cloudflare's runtime (9 tests)
 ```
+
+## Licence
+
+Headway is released under the MIT licence: Copyright (c) 2026 Kosuke Satake (see [LICENSE](LICENSE)). The libraries, fonts
+and map styles it contains, and the data it uses, have their own terms: see [THIRD_PARTY.md](THIRD_PARTY.md), and
+Settings > Licences inside the app. The city's data terms are summarised in `docs/data-sources.md`.
+
+This project accepts issues, not code contributions.
+
+## About the making of this app
+
+This app was built with the help of Claude (Anthropic) through Claude Code; design, review and testing are by Kosuke Satake. Anthropic does not endorse this app.
+

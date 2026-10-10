@@ -14,13 +14,16 @@ The older `transitdata.cityofmadison.com/{Vehicle,TripUpdate,Alert}/*.pb` URLs r
 
 ## Terms of use (`terms_of_use.txt` inside the feed)
 
-Read on 2026-10-03; this is a summary, not legal advice.
+Read on 2026-10-03 and compared again with the file in the feed on 2026-10-10; this is a summary, not legal advice.
 
 - The license is non-exclusive, limited and revocable. Use, reproduction and redistribution are allowed, limited to
   uses that assist transit riders or promote public transportation.
 - Crediting the city is optional. The wording if used: "Data provided under license granted by City of Madison, WI,
   Metro Transit."
-- The data is provided as is, with no warranty of accuracy or availability.
+- "Data" includes anything derived from what the licensee receives, and the city keeps all rights in the Data (except
+  those of third parties). Headway's punctuality statistics are derived from the feeds, so they are published as the
+  statistics of the app and not as a dataset; the recordings themselves (`data/`) are never committed or redistributed.
+- The data is provided as is, with no warranty of accuracy or availability. The agreement is governed by Wisconsin law.
 - The licensee indemnifies the city against claims arising from its use of the data or products derived from it.
   Think about this before publishing the app on the App Store.
 - The city may modify, terminate or revoke the agreement at any time.
