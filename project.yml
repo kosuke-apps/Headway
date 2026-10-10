@@ -49,6 +49,7 @@ targets:
       path: App/Info.plist
       properties:
         CFBundleDisplayName: Headway
+        NSHumanReadableCopyright: "Copyright © 2026 Kosuke Satake. MIT License."
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
