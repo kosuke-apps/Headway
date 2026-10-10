@@ -171,6 +171,7 @@ struct SettingsView: View {
         }
 
         Section {
+          NavigationLink("Licences") { LicensesView() }
           LabeledContent("Version", value: Self.version)
           Button("Reset settings", role: .destructive) { confirmReset = true }
         }

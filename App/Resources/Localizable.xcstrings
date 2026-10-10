@@ -4588,6 +4588,160 @@
           }
         }
       }
+    },
+    "Licences": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ライセンス"
+          }
+        }
+      }
+    },
+    "Software and fonts": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ソフトウェアとフォント"
+          }
+        }
+      }
+    },
+    "OpenStreetMap": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenStreetMap"
+          }
+        }
+      }
+    },
+    "Map data © OpenStreetMap contributors, Open Database Licence 1.0. The map tiles are a Protomaps build.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "地図データ © OpenStreetMap contributors(Open Database Licence 1.0)。地図タイルは Protomaps のビルドです。"
+          }
+        }
+      }
+    },
+    "City of Madison, Metro Transit": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "マディソン市 Metro Transit"
+          }
+        }
+      }
+    },
+    "Timetables and live positions: Data provided under license granted by City of Madison, WI, Metro Transit. Headway is independent of the City and Metro Transit.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "時刻表とバスの位置: Data provided under license granted by City of Madison, WI, Metro Transit.(マディソン市 Metro Transit から許諾を受けて提供されたデータ)。Headway は市や Metro Transit とは無関係の個人のアプリです。"
+          }
+        }
+      }
+    },
+    "Headway itself is under the MIT licence, Copyright (c) 2026 Kosuke Satake.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Headway 自体は MIT ライセンスです。Copyright (c) 2026 Kosuke Satake。"
+          }
+        }
+      }
+    },
+    "The licence text is missing from this copy of the app.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このアプリにライセンス文が入っていません。"
+          }
+        }
+      }
+    },
+    "Draws the map": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "地図の描画"
+          }
+        }
+      }
+    },
+    "Reads the city's live feeds": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "市のバス位置データの読み取り"
+          }
+        }
+      }
+    },
+    "The definition of the live feeds": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "バス位置データの定義"
+          }
+        }
+      }
+    },
+    "Opens the timetable archive": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "時刻表の圧縮ファイルの展開"
+          }
+        }
+      }
+    },
+    "Map labels": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "地図の文字"
+          }
+        }
+      }
+    },
+    "Colours and layers of the map": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "地図の色と層"
+          }
+        }
+      }
     }
   }
 }
