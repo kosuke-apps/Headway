@@ -85,8 +85,20 @@ Maps. See [PRIVACY.md](PRIVACY.md).
 
 ## Installing
 
-Headway is not on the App Store. There is no download to install: you build it with Xcode and put it on your own iPhone
-(or the simulator) as described below. With a free Apple ID the app has to be signed again every 7 days.
+Headway is not on the App Store. There are two ways to get it onto an iPhone (iOS 17 or later); both need you to sign
+the app with your own Apple ID, because Apple only runs signed apps.
+
+**From a release (no Mac needed).** Each [release](https://github.com/kosuke-apps/Headway/releases) has an unsigned
+`Headway-<version>-unsigned.ipa` and its checksum. Check the download with
+`shasum -a 256 -c Headway-<version>-unsigned.ipa.sha256`, then install the `.ipa` with a sideloading tool that signs
+with your own Apple ID, such as [AltStore](https://altstore.io) or [Sideloadly](https://sideloadly.io). The file is
+deliberately unsigned, so it carries no signature of mine. With a free Apple ID, such tools are widely reported to
+install an app that stops opening after 7 days (it has to be signed again) and to allow three apps at a time; that
+comes from the tools' own pages and community reports, not from Apple's documentation, so check the tool's page for the
+current limits.
+
+**From source.** Build it with Xcode and put it on your own iPhone (or the simulator), as described below. With a free
+Apple ID the app has to be signed again every 7 days.
 
 ## Getting started
 
