@@ -86,6 +86,7 @@ struct RootView: View {
       Button("Cancel", role: .cancel) {}
     }
     .preferredColorScheme(colorScheme)
+    .onChange(of: model.settings.values.language) { _, language in LanguageState.shared.apply(language) }
     .onChange(of: scenePhase) { _, phase in
       model.setActive(phase == .active)
       if phase == .background { WatchBackground.schedule(enabled: model.settings.values.watchEnabled && !model.settings.values.watchedRoutes.isEmpty) }
@@ -162,13 +163,13 @@ private struct StatusPill: View {
   }
 
   private func text(age: TimeInterval?, late: Bool) -> String {
-    guard let age else { return String(localized: "Connecting…") }
+    guard let age else { return L10n.string("Connecting…") }
     let seconds = Int(age.rounded())
     if model.liveFailing {
-      return String(localized: "No connection · positions \(seconds) s old")
+      return L10n.string("No connection · positions \(seconds) s old")
     }
-    if late { return String(localized: "Delayed · positions \(seconds) s old") }
-    return String(localized: "Live · \(model.vehicles.count) buses · positions \(seconds) s old")
+    if late { return L10n.string("Delayed · positions \(seconds) s old") }
+    return L10n.string("Live · \(model.vehicles.count) buses · positions \(seconds) s old")
   }
 }
 
@@ -375,7 +376,7 @@ private struct FocusChip: View {
       Section(model.directionName(route: route, direction: variant.direction)) {
         Button { model.setFocusDirection(variant.direction) } label: {
           Label(
-            patterns.isEmpty ? model.directionTitle(route: route, direction: variant.direction) : String(localized: "All destinations"),
+            patterns.isEmpty ? model.directionTitle(route: route, direction: variant.direction) : L10n.string("All destinations"),
             systemImage: wholeDirection ? "checkmark" : model.directionSymbol(route: route, direction: variant.direction))
         }
         ForEach(patterns) { pattern in
@@ -393,14 +394,14 @@ private struct FocusChip: View {
 
   private func title(_ focus: MapFocus, single: String?) -> String {
     if let label = focus.label { return label }
-    guard let single else { return String(localized: "Showing only these routes") }
+    guard let single else { return L10n.string("Showing only these routes") }
     if let direction = focus.direction {
       if let headsign = focus.headsign, let pattern = model.patterns(of: single, direction: direction).first(where: { $0.headsign == headsign }) {
         return model.patternTitle(pattern)
       }
       return model.directionTitle(route: single, direction: direction)
     }
-    return String(localized: "Both directions")
+    return L10n.string("Both directions")
   }
 }
 

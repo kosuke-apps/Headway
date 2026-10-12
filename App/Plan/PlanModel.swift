@@ -10,7 +10,7 @@ enum PlaceChoice: Equatable {
 
   var title: String {
     switch self {
-    case .myLocation: String(localized: "My location")
+    case .myLocation: L10n.string("My location")
     case .point(let point): point.name
     }
   }
@@ -96,11 +96,11 @@ final class PlanModel {
   /// Plans in the background so that scrolling stays smooth.
   func search(_ context: PlanContext) async {
     guard let schedule = context.schedule else {
-      phase = .failed(String(localized: "The timetable is not loaded yet."))
+      phase = .failed(L10n.string("The timetable is not loaded yet."))
       return
     }
     guard let (origin, destination) = resolveEnds(context.here) else {
-      phase = .failed(String(localized: "Your location is not available. Choose a starting stop or turn on location."))
+      phase = .failed(L10n.string("Your location is not available. Choose a starting stop or turn on location."))
       return
     }
     phase = .searching
@@ -109,7 +109,7 @@ final class PlanModel {
     let mode = departure
     let stops = resolveVias(context.here)
     guard let stops else {
-      phase = .failed(String(localized: "Choose a place for each stop on the way."))
+      phase = .failed(L10n.string("Choose a place for each stop on the way."))
       return
     }
     let journeys = await Task.detached(priority: .userInitiated) { () -> [Journey] in
@@ -216,7 +216,7 @@ final class PlanModel {
     case .myLocation:
       guard let here else { return nil }
       return PlanPoint(
-        name: String(localized: "My location"),
+        name: L10n.string("My location"),
         coordinate: Coordinate(latitude: here.coordinate.latitude, longitude: here.coordinate.longitude))
     }
   }

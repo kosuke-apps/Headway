@@ -45,7 +45,7 @@ enum Reminders {
     let fireAt = journey.departure.addingTimeInterval(-Double(leadMinutes) * 60)
     guard fireAt.timeIntervalSinceNow > 5 else { return .tooLate }
     let content = UNMutableNotificationContent()
-    content.title = String(localized: "Time to leave")
+    content.title = L10n.string("Time to leave")
     content.body = body
     content.sound = .default
     content.interruptionLevel = .timeSensitive

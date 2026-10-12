@@ -28,7 +28,7 @@ struct PlacePicker: View {
       }
       .navigationTitle(title)
       .navigationBarTitleDisplayMode(.inline)
-      .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Stop, place or address")
+      .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: Text(L10n.string("Stop, place or address")))
       .textInputAutocapitalization(.never)
       .onChange(of: query) { _, value in scheduleSearch(value) }
       .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Cancel") { dismiss() } } }

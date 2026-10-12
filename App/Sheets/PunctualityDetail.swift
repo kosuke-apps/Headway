@@ -98,7 +98,7 @@ struct PunctualityDetail: View {
         Text("About these numbers")
       }
     }
-    .navigationTitle("Punctuality")
+    .navigationTitle(L10n.string("Punctuality"))
     .navigationBarTitleDisplayMode(.inline)
     .onChange(of: dayType) { _, _ in selectedHour = nil }
     .onChange(of: wholeRoute) { _, _ in selectedHour = nil }
@@ -150,9 +150,9 @@ struct PunctualityDetail: View {
       let early = slice.cell.earlyShare * 100, late = slice.cell.lateShare * 100
       let onTime = max(0, 100 - early - late)
       return [
-        Share(hour: slice.hour, kind: String(localized: "Early"), low: 0, high: early, tint: self.early),
-        Share(hour: slice.hour, kind: String(localized: "On time"), low: early, high: early + onTime, tint: self.onTime),
-        Share(hour: slice.hour, kind: String(localized: "Late"), low: early + onTime, high: 100, tint: self.late),
+        Share(hour: slice.hour, kind: L10n.string("Early"), low: 0, high: early, tint: self.early),
+        Share(hour: slice.hour, kind: L10n.string("On time"), low: early, high: early + onTime, tint: self.onTime),
+        Share(hour: slice.hour, kind: L10n.string("Late"), low: early + onTime, high: 100, tint: self.late),
       ]
     }
   }
@@ -288,8 +288,8 @@ struct PunctualityDetail: View {
   /// "+3 min" or "−2 min" for a delay in seconds.
   private func signed(_ seconds: Int) -> String {
     let minutes = Int((Double(seconds) / 60).rounded())
-    if minutes == 0 { return String(localized: "on time") }
-    return minutes > 0 ? String(localized: "+\(minutes) min") : String(localized: "\u{2212}\(-minutes) min")
+    if minutes == 0 { return L10n.string("on time") }
+    return minutes > 0 ? L10n.string("+\(minutes) min") : L10n.string("\u{2212}\(-minutes) min")
   }
 
   private func date(atHour hour: Int) -> Date {

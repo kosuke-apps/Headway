@@ -30,9 +30,9 @@ struct SearchSheet: View {
           }
         }
       }
-      .navigationTitle("Find a stop")
+      .navigationTitle(L10n.string("Find a stop"))
       .navigationBarTitleDisplayMode(.inline)
-      .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Stop name or number")
+      .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: Text(L10n.string("Stop name or number")))
       .textInputAutocapitalization(.never)
       .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } } }
     }

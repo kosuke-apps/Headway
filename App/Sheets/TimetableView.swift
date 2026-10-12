@@ -76,10 +76,11 @@ struct TimetableView: View {
     var calendar = Calendar(identifier: .gregorian)
     calendar.timeZone = zone
     let date = calendar.date(byAdding: .day, value: offset, to: calendar.startOfDay(for: Date()))!
-    if offset == 0 { return String(localized: "Today") }
-    if offset == 1 { return String(localized: "Tomorrow") }
+    if offset == 0 { return L10n.string("Today") }
+    if offset == 1 { return L10n.string("Tomorrow") }
     let formatter = DateFormatter()
     formatter.timeZone = zone
+    formatter.locale = LanguageState.shared.locale
     formatter.setLocalizedDateFormatFromTemplate("EEEMMMd")
     return formatter.string(from: date)
   }

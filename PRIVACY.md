@@ -7,6 +7,7 @@ to the author. This was checked against the source on 2026-10-10 (every network 
 
 - **Your location**, if you allow it ("While Using the App"). It shows where you are on the map, finds nearby stops, and
   starts a trip "from my location". It is read by the app on the phone and is never sent anywhere by Headway.
+- **Your choice of language** (Settings > Language). It is one more setting and stays on the phone like the rest.
 - **Your settings, favourite stops and routes, saved places (Home, Work, ...), saved and recent trips, and the routes you
   watch.** They are stored in the app's own storage on the phone (they are part of an iCloud or computer backup of the
   phone if you make one) and nowhere else. "Reset settings" clears the settings and keeps the favourites.

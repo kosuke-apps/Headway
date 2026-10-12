@@ -75,7 +75,7 @@ final class AppSettings {
     // Home and work exist once: saving a new one replaces the old.
     if kind != .other { values.savedPlaces.removeAll { $0.kind == kind } }
     values.savedPlaces.removeAll { $0.kind == .other && StoredEnd(.point(point)).matches(StoredEnd(.point($0.point))) }
-    let label = name ?? (kind == .home ? String(localized: "Home") : kind == .work ? String(localized: "Work") : point.name)
+    let label = name ?? (kind == .home ? L10n.string("Home") : kind == .work ? L10n.string("Work") : point.name)
     var place = StoredPlace(name: label, kind: kind, point: point)
     place.name = label
     values.savedPlaces.append(place)

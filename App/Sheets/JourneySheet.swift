@@ -13,7 +13,7 @@ struct JourneySheet: View {
           HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 2) {
               Text("\(text.clock(journey.departure)) → \(text.clock(journey.arrival))").font(.title3.weight(.semibold)).monospacedDigit()
-              Text("\(TimeText.duration(journey.duration)) · \(journey.transfers == 0 ? String(localized: "Direct") : String(localized: "\(journey.transfers) transfers"))")
+              Text("\(TimeText.duration(journey.duration)) · \(journey.transfers == 0 ? L10n.string("Direct") : L10n.string("\(journey.transfers) transfers"))")
                 .font(.footnote).foregroundStyle(.secondary)
             }
             Spacer()

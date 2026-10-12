@@ -67,6 +67,8 @@ enum ArrivalStyle: String, Codable, CaseIterable, Identifiable {
 /// Decoding falls back to the default for any missing key, so adding a setting never loses the existing ones.
 struct Preferences: Codable, Equatable {
   // Appearance
+  /// The language of the app's text. Kept on the phone only.
+  var language: AppLanguage = .system
   var appearance: AppearanceMode = .system
   var routePalette: RoutePalette = .agency
   var markerSize: MarkerSize = .medium
@@ -135,6 +137,7 @@ struct Preferences: Codable, Equatable {
     let c = try decoder.container(keyedBy: Key.self)
     func value<T: Decodable>(_ key: Key, _ fallback: T) -> T { (try? c.decodeIfPresent(T.self, forKey: key)) ?? fallback }
     let d = Preferences()
+    language = value(.language, d.language)
     appearance = value(.appearance, d.appearance)
     routePalette = value(.routePalette, d.routePalette)
     markerSize = value(.markerSize, d.markerSize)
@@ -180,7 +183,7 @@ struct Preferences: Codable, Equatable {
   }
 
   private enum Key: String, CodingKey {
-    case appearance, routePalette, markerSize, showRouteNameOnBuses, routeLineWidth, focusStyle, focusFade, stopVisibility, showStopNames
+    case language, appearance, routePalette, markerSize, showRouteNameOnBuses, routeLineWidth, focusStyle, focusFade, stopVisibility, showStopNames
     case updateInterval, smoothBusMovement, estimateBusPositions, pauseLiveInBackground
     case clockFormat, arrivalStyle, showDelayDetails, showScheduledTimes
     case hapticFeedback, rememberMapPosition

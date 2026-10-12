@@ -21,7 +21,7 @@ struct RoutesSheet: View {
           Text("Tap a route, or one of its directions, to see only that and its stops. Use the switch to hide a route from the map. Swipe left on a route to be notified about it. Next to the bus: red is late (over 5 minutes), green on time, blue early (over 2 minutes). A triangle marks a route with an alert.")
         }
       }
-      .navigationTitle("Routes")
+      .navigationTitle(L10n.string("Routes"))
       .navigationBarTitleDisplayMode(.inline)
       .onAppear {
         model.refreshOutlooks()
@@ -71,7 +71,7 @@ struct RoutesSheet: View {
             RouteBadge(routeID: route.id)
             VStack(alignment: .leading, spacing: 2) {
               HStack(spacing: 6) {
-                Text(route.longName.isEmpty ? String(localized: "Both directions") : route.longName).font(.subheadline).lineLimit(2)
+                Text(route.longName.isEmpty ? L10n.string("Both directions") : route.longName).font(.subheadline).lineLimit(2)
                   .foregroundStyle(focused && model.focus.direction == nil ? Color.blue : Color.primary)
                 if model.alertRouteIDs.contains(route.id) {
                   Image(systemName: "exclamationmark.triangle.fill").font(.caption).foregroundStyle(.orange).accessibilityLabel(Text("Alert"))

@@ -540,7 +540,7 @@ final class AppModel {
   /// "Westbound": the way a direction of a route runs, in the app's language.
   func directionName(route: String, direction: Int) -> String {
     let name = variants(of: route).first { $0.direction == direction }?.directionName ?? ""
-    return name.isEmpty ? String(localized: "Direction \(direction + 1)") : Self.compassName(name)
+    return name.isEmpty ? L10n.string("Direction \(direction + 1)") : Self.compassName(name)
   }
 
   /// "D2 · Epic Campus": a destination with its route and pattern number, as the buses show them.
@@ -593,7 +593,7 @@ final class AppModel {
     if buses.isEmpty, let route {
       focusRoute(route)
     } else {
-      let label = late && early ? String(localized: "Late and early buses") : (late ? String(localized: "Late buses") : String(localized: "Early buses"))
+      let label = late && early ? L10n.string("Late and early buses") : (late ? L10n.string("Late buses") : L10n.string("Early buses"))
       focusBuses(buses, label: label)
     }
   }
@@ -622,10 +622,10 @@ final class AppModel {
   /// The feed's direction name in the app's language ("Westbound" is "西行き"); other names are shown as the feed has them.
   private static func compassName(_ name: String) -> String {
     switch name.lowercased() {
-    case "eastbound": String(localized: "Eastbound")
-    case "westbound": String(localized: "Westbound")
-    case "northbound": String(localized: "Northbound")
-    case "southbound": String(localized: "Southbound")
+    case "eastbound": L10n.string("Eastbound")
+    case "westbound": L10n.string("Westbound")
+    case "northbound": L10n.string("Northbound")
+    case "southbound": L10n.string("Southbound")
     default: name.capitalized
     }
   }
@@ -647,7 +647,7 @@ final class AppModel {
     let places = variant.headsigns.map(\.prettyHeadsign).joined(separator: ", ")
     let name = Self.compassName(variant.directionName)
     if name.isEmpty { return places }
-    return places.isEmpty ? name : String(localized: "\(name) to \(places)")
+    return places.isEmpty ? name : L10n.string("\(name) to \(places)")
   }
 
   func fly(to latitude: Double, _ longitude: Double, minimumZoom: Double) {

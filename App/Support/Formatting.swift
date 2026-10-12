@@ -12,7 +12,7 @@ struct TimeText {
     formatter.timeZone = timeZone
     switch clockFormat {
     case .system:
-      formatter.locale = .autoupdatingCurrent
+      formatter.locale = LanguageState.shared.locale
       formatter.setLocalizedDateFormatFromTemplate("jmm")
     case .twelveHour:
       formatter.locale = Locale(identifier: "en_US_POSIX")
@@ -28,16 +28,16 @@ struct TimeText {
   func arrival(_ arrival: Arrival, now: Date) -> String {
     let minutes = arrival.minutes(from: now)
     if arrivalStyle == .clock || minutes >= 60 { return clock(arrival.expected) }
-    if minutes <= 0 { return String(localized: "Now") }
-    return String(localized: "\(minutes) min")
+    if minutes <= 0 { return L10n.string("Now") }
+    return L10n.string("\(minutes) min")
   }
 
   /// A short, honest description of how the live time compares with the timetable.
   static func delay(_ seconds: Int?) -> String? {
     guard let seconds else { return nil }
     let minutes = Int((Double(abs(seconds)) / 60).rounded())
-    if minutes < 1 { return String(localized: "On time") }
-    return seconds > 0 ? String(localized: "\(minutes) min late") : String(localized: "\(minutes) min early")
+    if minutes < 1 { return L10n.string("On time") }
+    return seconds > 0 ? L10n.string("\(minutes) min late") : L10n.string("\(minutes) min early")
   }
 
   /// The mark next to a timetable minute for a bus that is `seconds` behind (positive) or ahead (negative) of it: "+3" for
@@ -50,8 +50,8 @@ struct TimeText {
 
   /// "10 min", "1 h", "1 h 30 min".
   static func minutesLabel(_ minutes: Int) -> String {
-    if minutes < 60 { return String(localized: "\(minutes) min") }
-    return minutes % 60 == 0 ? String(localized: "\(minutes / 60) h") : String(localized: "\(minutes / 60) h \(minutes % 60) min")
+    if minutes < 60 { return L10n.string("\(minutes) min") }
+    return minutes % 60 == 0 ? L10n.string("\(minutes / 60) h") : L10n.string("\(minutes / 60) h \(minutes % 60) min")
   }
 
   static func distance(_ meters: Double) -> String {
@@ -85,7 +85,7 @@ extension TimeText {
     formatter.timeZone = timeZone
     switch clockFormat {
     case .system:
-      formatter.locale = .autoupdatingCurrent
+      formatter.locale = LanguageState.shared.locale
       formatter.setLocalizedDateFormatFromTemplate("j")
     case .twelveHour:
       formatter.locale = Locale(identifier: "en_US_POSIX")
@@ -110,9 +110,9 @@ extension TimeText {
   /// "28 min" or "1 h 5 min".
   static func duration(_ seconds: TimeInterval) -> String {
     let minutes = max(1, Int((seconds / 60).rounded()))
-    if minutes < 60 { return String(localized: "\(minutes) min") }
+    if minutes < 60 { return L10n.string("\(minutes) min") }
     let hours = minutes / 60, rest = minutes % 60
-    return rest == 0 ? String(localized: "\(hours) h") : String(localized: "\(hours) h \(rest) min")
+    return rest == 0 ? L10n.string("\(hours) h") : L10n.string("\(hours) h \(rest) min")
   }
 
   /// "230 m" below a kilometre, otherwise "1.4 km" (or the locale's units).
@@ -126,7 +126,7 @@ extension TimeText {
     let low = max(0, Int((earliest.timeIntervalSince(now) / 60).rounded(.down)))
     let high = max(0, Int((latest.timeIntervalSince(now) / 60).rounded(.up)))
     guard high - low >= 2 else { return nil }
-    return String(localized: "\(low)–\(high) min")
+    return L10n.string("\(low)–\(high) min")
   }
 
   func clockRange(earliest: Date, latest: Date) -> String? {
@@ -141,10 +141,10 @@ enum Compass {
   static func bound(_ degrees: Int?) -> String? {
     guard let degrees else { return nil }
     switch ((degrees % 360 + 360) % 360 + 45) / 90 % 4 {
-    case 0: return String(localized: "Northbound")
-    case 1: return String(localized: "Eastbound")
-    case 2: return String(localized: "Southbound")
-    default: return String(localized: "Westbound")
+    case 0: return L10n.string("Northbound")
+    case 1: return L10n.string("Eastbound")
+    case 2: return L10n.string("Southbound")
+    default: return L10n.string("Westbound")
     }
   }
 

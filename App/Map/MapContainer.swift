@@ -54,7 +54,7 @@ struct MapContainer: UIViewRepresentable {
       }
     }
     coordinator.onLongPress = { [model] latitude, longitude in
-      model.droppedPin = PlanPoint(name: String(localized: "Dropped pin"), coordinate: Coordinate(latitude: latitude, longitude: longitude))
+      model.droppedPin = PlanPoint(name: L10n.string("Dropped pin"), coordinate: Coordinate(latitude: latitude, longitude: longitude))
     }
     coordinator.onCameraIdle = { [model] latitude, longitude, zoom in
       guard model.settings.values.rememberMapPosition else { return }
