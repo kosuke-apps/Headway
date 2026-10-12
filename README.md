@@ -65,7 +65,7 @@ the data the city publishes (see Data below), and bus times can differ from what
 - **Notifications.** Watch routes (swipe a route) and be told when one is late, early or has an alert. Local
   notifications only: Headway checks while it is open and, when iOS allows, in the background, so they are best effort.
 - **Search** by stop name or sign number; favourites, recents and nearby stops.
-- **Language.** English or Japanese, chosen in Settings > Language (or "System default", which follows iOS). The change
+- **Language.** English or Japanese, chosen in Settings > Behavior > Language (or "System default", which follows iOS). The change
   applies at once, without restarting. Dates, numbers and distances keep following the phone's region, and the map's labels
   stay in English (the city's stop and destination names are English).
 - **Customization.** Light, dark or system theme; three colour palettes (Metro Transit, colour-blind-safe,
@@ -140,7 +140,7 @@ installs it). A free Apple ID works; the app must be re-signed every 7 days.
 ```bash
 swift test                                                       # data layer (136 tests)
 xcodebuild test -project Headway.xcodeproj -scheme Headway \
-  -destination 'platform=iOS Simulator,name=iPhone 18 Pro' CODE_SIGNING_ALLOWED=NO   # app tests (65)
+  -destination 'platform=iOS Simulator,name=iPhone 18 Pro' CODE_SIGNING_ALLOWED=NO   # app tests (66)
 (cd collector && npm test)                                       # collector, in Cloudflare's runtime (9 tests)
 ```
 
