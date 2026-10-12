@@ -111,6 +111,16 @@ import Testing
     #expect(problems.isEmpty, Comment(rawValue: problems.joined(separator: "\n")))
   }
 
+  @Test func japaneseTextUsesTheFullWidthCommaAndPeriod() throws {
+    // The author writes Japanese with "，" and "．", never "、" and "。": the app's Japanese follows.
+    let catalog = try Data(contentsOf: root.appendingPathComponent("App/Resources/Localizable.xcstrings"))
+    let plist = try Data(contentsOf: root.appendingPathComponent("App/Resources/ja.lproj/InfoPlist.strings"))
+    for (name, data) in [("Localizable.xcstrings", catalog), ("ja InfoPlist.strings", plist)] {
+      let text = String(decoding: data, as: UTF8.self)
+      #expect(!text.contains("、") && !text.contains("。"), Comment(rawValue: "\(name) uses 、 or 。"))
+    }
+  }
+
   @Test func noCodeAsksTheSystemForTextBehindTheLanguageChoicesBack() throws {
     // `String(localized:)` follows the phone's language, so a string built with it ignores Settings > Language.
     let app = root.appendingPathComponent("App")

@@ -26,19 +26,6 @@ struct SettingsView: View {
     NavigationStack {
       Form {
         Section {
-          Picker("Language", selection: $settings.values.language) {
-            Text("System default").tag(AppLanguage.system)
-            // A language is named in itself, whatever the app speaks now.
-            Text(verbatim: "English").tag(AppLanguage.english)
-            Text(verbatim: "日本語").tag(AppLanguage.japanese)
-          }
-        } header: {
-          Text("Language")
-        } footer: {
-          Text("System default follows iOS Settings > Headway > Language. Dates, numbers and distances follow your phone's region. The location permission message and the app's name come from iOS and keep its language. The choice stays on this phone.")
-        }
-
-        Section {
           Picker("Theme", selection: $settings.values.appearance) {
             Text("System").tag(AppearanceMode.system)
             Text("Light").tag(AppearanceMode.light)
@@ -133,11 +120,21 @@ struct SettingsView: View {
           Text("Minutes: a live bus says how many minutes late or early it is. With timetable time: the stop board leads with the timetable's own time, and the live countdown and how late or early it is come under it; the full timetable marks live buses with +3 or −2 beside their minute. Timetable times are never replaced.")
         }
 
-        Section("Behavior") {
+        Section {
           Toggle("Haptic feedback", isOn: $settings.values.hapticFeedback)
+          Picker("Language", selection: $settings.values.language) {
+            Text("System default").tag(AppLanguage.system)
+            // A language is named in itself, whatever the app speaks now.
+            Text(verbatim: "English").tag(AppLanguage.english)
+            Text(verbatim: "日本語").tag(AppLanguage.japanese)
+          }
           if let url = URL(string: UIApplication.openSettingsURLString) {
             Link(destination: url) { Label("Language and location", systemImage: "gear") }
           }
+        } header: {
+          Text("Behavior")
+        } footer: {
+          Text("System default follows iOS Settings > Headway > Language. Dates, numbers and distances follow your phone's region. The location permission message and the app's name come from iOS and keep its language. The choice stays on this phone.")
         }
 
         notificationsSection
