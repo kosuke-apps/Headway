@@ -17,17 +17,17 @@ struct JourneySummary {
       defer {
         for stay in journey.stopovers where stay.afterLeg == index {
           lines.append(
-            "• " + String(localized: "Stay at \(stay.place.name)") + ": \(text.clock(stay.arrive))–\(text.clock(stay.leave)) · \(TimeText.duration(stay.duration))")
+            "• " + L10n.string("Stay at \(stay.place.name)") + ": \(text.clock(stay.arrive))–\(text.clock(stay.leave)) · \(TimeText.duration(stay.duration))")
         }
       }
       switch leg {
       case .walk(let walk):
-        lines.append("• " + String(localized: "Walk \(TimeText.duration(walk.end.timeIntervalSince(walk.start))) to \(walk.to.name)"))
+        lines.append("• " + L10n.string("Walk \(TimeText.duration(walk.end.timeIntervalSince(walk.start))) to \(walk.to.name)"))
       case .ride(let ride):
         lines.append(
-          "• " + String(localized: "Route \(routeName(ride.routeID)) to \(ride.headsign.prettyHeadsign)") + ": "
-            + String(localized: "Board at \(stopName(ride.fromStop)) · \(text.clock(ride.depart))") + ", "
-            + String(localized: "Get off at \(stopName(ride.toStop)) · \(text.clock(ride.arrive))"))
+          "• " + L10n.string("Route \(routeName(ride.routeID)) to \(ride.headsign.prettyHeadsign)") + ": "
+            + L10n.string("Board at \(stopName(ride.fromStop)) · \(text.clock(ride.depart))") + ", "
+            + L10n.string("Get off at \(stopName(ride.toStop)) · \(text.clock(ride.arrive))"))
       }
     }
     return lines
@@ -35,12 +35,12 @@ struct JourneySummary {
 
   /// What the reminder says: when to leave and what to take.
   func reminder(for journey: Journey) -> String {
-    guard let first = journey.rides.first else { return String(localized: "Time to start walking.") }
-    let route = String(localized: "Route \(routeName(first.routeID)) to \(first.headsign.prettyHeadsign)")
+    guard let first = journey.rides.first else { return L10n.string("Time to start walking.") }
+    let route = L10n.string("Route \(routeName(first.routeID)) to \(first.headsign.prettyHeadsign)")
     if case .walk(let walk) = journey.legs.first {
       return String(
         localized: "Leave now: walk \(TimeText.duration(walk.end.timeIntervalSince(walk.start))) to \(first.fromStop.name). \(route) at \(text.clock(first.depart)).")
     }
-    return String(localized: "\(route) leaves \(first.fromStop.name) at \(text.clock(first.depart)).")
+    return L10n.string("\(route) leaves \(first.fromStop.name) at \(text.clock(first.depart)).")
   }
 }

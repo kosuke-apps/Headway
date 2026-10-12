@@ -61,7 +61,7 @@ struct BusSheet: View {
           RouteBadge(routeID: vehicle.routeID)
         }
         VStack(alignment: .leading, spacing: 2) {
-          Text(vehicle.tripID.isEmpty ? String(localized: "Not on a trip") : model.headsign(of: vehicle.tripID).prettyHeadsign)
+          Text(vehicle.tripID.isEmpty ? L10n.string("Not on a trip") : model.headsign(of: vehicle.tripID).prettyHeadsign)
             .font(.title3.weight(.semibold)).lineLimit(2)
           HStack(spacing: 6) {
             Text("Bus \(vehicle.vehicleID)")
@@ -132,7 +132,7 @@ struct BusSheet: View {
   private func positionAge(_ vehicle: VehicleSample) -> String? {
     guard let timestamp = vehicle.timestamp else { return nil }
     let seconds = max(0, Int(Date().timeIntervalSince(timestamp)))
-    return String(localized: "position \(seconds) s old")
+    return L10n.string("position \(seconds) s old")
   }
 
   private func stopRow(_ eta: TripStopEta, text: TimeText, now: Date) -> some View {

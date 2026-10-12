@@ -17,7 +17,7 @@ struct InfoView: View {
         silentSection
         upcomingSection
       }
-      .navigationTitle("Service info")
+      .navigationTitle(L10n.string("Service info"))
       .navigationBarTitleDisplayMode(.inline)
       .toolbar { ToolbarItem(placement: .topBarLeading) { MenuButton(plain: true) } }
       .refreshable {

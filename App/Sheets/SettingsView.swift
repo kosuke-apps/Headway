@@ -26,6 +26,19 @@ struct SettingsView: View {
     NavigationStack {
       Form {
         Section {
+          Picker("Language", selection: $settings.values.language) {
+            Text("System default").tag(AppLanguage.system)
+            // A language is named in itself, whatever the app speaks now.
+            Text(verbatim: "English").tag(AppLanguage.english)
+            Text(verbatim: "日本語").tag(AppLanguage.japanese)
+          }
+        } header: {
+          Text("Language")
+        } footer: {
+          Text("System default follows iOS Settings > Headway > Language. Dates, numbers and distances follow your phone's region. The location permission message and the app's name come from iOS and keep its language. The choice stays on this phone.")
+        }
+
+        Section {
           Picker("Theme", selection: $settings.values.appearance) {
             Text("System").tag(AppearanceMode.system)
             Text("Light").tag(AppearanceMode.light)
@@ -77,7 +90,7 @@ struct SettingsView: View {
           }
           Toggle("Show stop names", isOn: $settings.values.showStopNames)
           Toggle("Remember map position", isOn: $settings.values.rememberMapPosition)
-          LabeledContent("Map data", value: String(localized: "Madison area, on this device"))
+          LabeledContent("Map data", value: L10n.string("Madison area, on this device"))
         } header: {
           Text("Map")
         } footer: {
@@ -130,7 +143,7 @@ struct SettingsView: View {
         notificationsSection
 
         Section("Trip planner") {
-          NavigationLink("Trip options") { PlanOptionsForm().navigationTitle("Trip options").navigationBarTitleDisplayMode(.inline) }
+          NavigationLink("Trip options") { PlanOptionsForm().navigationTitle(L10n.string("Trip options")).navigationBarTitleDisplayMode(.inline) }
           NavigationLink("Saved places") { SavedPlacesView() }
         }
 
@@ -176,10 +189,10 @@ struct SettingsView: View {
           Button("Reset settings", role: .destructive) { confirmReset = true }
         }
       }
-      .navigationTitle("Settings")
+      .navigationTitle(L10n.string("Settings"))
       .navigationBarTitleDisplayMode(.inline)
       .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } } }
-      .confirmationDialog("Reset all settings?", isPresented: $confirmReset, titleVisibility: .visible) {
+      .confirmationDialog(Text(L10n.string("Reset all settings?")), isPresented: $confirmReset, titleVisibility: .visible) {
         Button("Reset settings", role: .destructive) { model.settings.reset() }
       } message: {
         Text("Favorites and recent stops are kept.")
@@ -229,7 +242,7 @@ struct SettingsView: View {
   private static func formatted(_ date: ServiceDate) -> String {
     let components = DateComponents(year: date.value / 10_000, month: date.value / 100 % 100, day: date.value % 100)
     guard let value = Calendar(identifier: .gregorian).date(from: components) else { return "\(date.value)" }
-    return value.formatted(date: .abbreviated, time: .omitted)
+    return value.formatted(Date.FormatStyle(date: .abbreviated, time: .omitted).locale(LanguageState.shared.locale))
   }
 }
 
@@ -252,7 +265,7 @@ struct WatchedRoutesView: View {
         Text("You are told when one of these routes is late or early, or when the city posts a detour or alert for it.")
       }
     }
-    .navigationTitle("Routes to watch")
+    .navigationTitle(L10n.string("Routes to watch"))
     .navigationBarTitleDisplayMode(.inline)
     .notificationsDeniedAlert()
   }
@@ -277,7 +290,7 @@ struct FavoriteStopsView: View {
       .onDelete { model.settings.values.favoriteStops.remove(atOffsets: $0) }
       .onMove { model.settings.values.favoriteStops.move(fromOffsets: $0, toOffset: $1) }
     }
-    .navigationTitle("Favorite stops")
+    .navigationTitle(L10n.string("Favorite stops"))
     .toolbar { EditButton() }
   }
 }

@@ -121,6 +121,14 @@ The author's general workspace rules (outside this repository) apply too; this f
   - Map long-press drops a pin and offers directions to or from it; a stop's sheet has a Directions button.
   - `App/RootView.swift`: map, status pill, controls, focus chip, sheet routing (stop and bus share one sheet
     identity so selecting another does not re-present it).
+  - Language: Settings > Language (system default / English / 日本語, `Preferences.language`). `LanguageState.shared`
+    (`App/Support/Language.swift`, observable) holds the chosen language, its `Locale` (the language with the phone's
+    region, so units and 12/24 hours still follow the phone) and its `.lproj` bundle; `LanguageRoot` puts the locale into
+    the environment for SwiftUI text, and every string built in code goes through `L10n.string`, which reads the chosen
+    language's bundle. Never write `String(localized:)` or `NSLocalizedString` in `App/` (`LanguageTests` fails on it): it
+    follows the phone's language and ignores the choice. Titles, search prompts and dialog titles passed to UIKit-backed
+    SwiftUI views are resolved with `L10n.string` too. The iOS permission text and the app name come from `InfoPlist.strings`
+    and keep iOS's language. Map labels stay English (Latin-only glyphs; the feed's names are English).
   - `App/Resources/`: `Localizable.xcstrings` (English keys, Japanese values; add both when adding UI text),
     `ja.lproj`/`en.lproj` InfoPlist strings, `Assets.xcassets` (icon), basemap styles and glyphs.
   - `AppTests/`: Swift Testing for preferences, settings, formatting, colours, map focus and the overlay, notification text.

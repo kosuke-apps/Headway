@@ -58,7 +58,7 @@ struct LiveStatus: View {
 
   private var liveText: String {
     if showDelay, let text = TimeText.delay(arrival.delay) { return text }
-    return String(localized: "Live")
+    return L10n.string("Live")
   }
 
   private var delayColor: Color {
@@ -239,17 +239,17 @@ struct ReliabilityRow: View {
   private var description: String {
     let name: String
     switch match.dayType {
-    case .weekday: name = String(localized: "Weekdays")
-    case .saturday: name = String(localized: "Saturdays")
-    case .sunday: name = String(localized: "Sundays")
+    case .weekday: name = L10n.string("Weekdays")
+    case .saturday: name = L10n.string("Saturdays")
+    case .sunday: name = L10n.string("Sundays")
     }
     var calendar = Calendar(identifier: .gregorian)
     calendar.timeZone = model.schedule?.timeZone ?? .current
     let time = calendar.date(bySettingHour: match.hour, minute: 0, second: 0, of: Date()) ?? Date()
     let hour = model.timeText().hourLabel(time)
-    let scope = match.scope == .stop ? String(localized: "this stop") : String(localized: "whole route")
-    let arrivals = String(localized: "\(match.cell.n) arrivals")
-    let days = String(localized: "\(model.punctuality.days) days recorded")
-    return "\(name) \(String(localized: "around \(hour)")) · \(scope) · \(arrivals) · \(days)"
+    let scope = match.scope == .stop ? L10n.string("this stop") : L10n.string("whole route")
+    let arrivals = L10n.string("\(match.cell.n) arrivals")
+    let days = L10n.string("\(model.punctuality.days) days recorded")
+    return "\(name) \(L10n.string("around \(hour)")) · \(scope) · \(arrivals) · \(days)"
   }
 }

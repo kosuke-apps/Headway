@@ -5,7 +5,7 @@ struct LicenseEntry: Identifiable, Hashable {
   let id: String
   let name: String
   /// What it is used for.
-  let purpose: LocalizedStringResource
+  let purpose: String.LocalizationValue
   /// "Apache License 2.0".
   let licence: String
   let copyright: String
@@ -73,7 +73,7 @@ struct LicensesView: View {
           } label: {
             VStack(alignment: .leading, spacing: 2) {
               Text(entry.name)
-              Text("\(Text(entry.purpose)) · \(entry.licence)").font(.footnote).foregroundStyle(.secondary)
+              Text("\(L10n.string(entry.purpose)) · \(entry.licence)").font(.footnote).foregroundStyle(.secondary)
             }
           }
         }
@@ -83,7 +83,7 @@ struct LicensesView: View {
         Text("Headway itself is under the MIT licence, Copyright (c) 2026 Kosuke Satake.")
       }
     }
-    .navigationTitle("Licences")
+    .navigationTitle(L10n.string("Licences"))
     .navigationBarTitleDisplayMode(.inline)
   }
 }
@@ -96,7 +96,7 @@ private struct LicenseText: View {
     ScrollView {
       VStack(alignment: .leading, spacing: 12) {
         Text(entry.copyright).font(.footnote.weight(.semibold))
-        Text(entry.text() ?? String(localized: "The licence text is missing from this copy of the app."))
+        Text(entry.text() ?? L10n.string("The licence text is missing from this copy of the app."))
           .font(.system(.caption, design: .monospaced))
           .textSelection(.enabled)
       }

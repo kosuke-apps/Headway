@@ -54,7 +54,7 @@ struct StoredEnd: Codable, Hashable {
   }
 
   var choice: PlaceChoice { isMyLocation ? .myLocation : .point(place?.point ?? PlanPoint(name: "", coordinate: Coordinate(latitude: 0, longitude: 0))) }
-  var title: String { isMyLocation ? String(localized: "My location") : (place?.name ?? "") }
+  var title: String { isMyLocation ? L10n.string("My location") : (place?.name ?? "") }
 
   /// Two ends are the same when they are the same place, whatever id each copy was given.
   func matches(_ other: StoredEnd) -> Bool {

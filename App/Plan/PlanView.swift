@@ -47,7 +47,7 @@ struct PlanView: View {
         }
         content(plan)
       }
-      .navigationTitle("Plan a trip")
+      .navigationTitle(L10n.string("Plan a trip"))
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .topBarLeading) { MenuButton(plain: true) }
@@ -126,7 +126,7 @@ struct PlanView: View {
                 Button("Remove", systemImage: "trash", role: .destructive) { model.settings.removePlace(place.id) }
               }
           }
-          Button { picking = .place } label: { ChipLabel(symbol: "plus", text: String(localized: "Add place"), filled: false) }
+          Button { picking = .place } label: { ChipLabel(symbol: "plus", text: L10n.string("Add place"), filled: false) }
             .buttonStyle(.plain)
         }
         .padding(.horizontal, 16)
@@ -153,7 +153,7 @@ struct PlanView: View {
           Button("Remove", systemImage: "trash", role: .destructive) { model.settings.removePlace(place.id) }
         }
     } else {
-      Button { picking = pick } label: { ChipLabel(symbol: kind.symbol, text: String(localized: "Set \(String(localized: kind == .home ? "Home" : "Work"))"), filled: false) }
+      Button { picking = pick } label: { ChipLabel(symbol: kind.symbol, text: L10n.string("Set \(L10n.string(kind == .home ? "Home" : "Work"))"), filled: false) }
         .buttonStyle(.plain)
     }
   }
@@ -254,7 +254,7 @@ struct PlanView: View {
       HStack {
         VStack(alignment: .leading, spacing: 1) {
           Text(title).font(.caption).foregroundStyle(.secondary)
-          Text(choice?.title ?? String(localized: "Choose a place")).font(.body)
+          Text(choice?.title ?? L10n.string("Choose a place")).font(.body)
             .foregroundStyle(choice == nil ? .secondary : .primary).lineLimit(1)
         }
         Spacer(minLength: 0)
@@ -519,8 +519,8 @@ struct JourneyCard: View {
         Text("Stops: \(journey.stopovers.map(\.place.name).joined(separator: ", "))").font(.caption).foregroundStyle(.purple)
       }
       HStack(spacing: 10) {
-        Text(journey.transfers == 0 ? String(localized: "Direct") : String(localized: "\(journey.transfers) transfers"))
-        if journey.walkingMeters > 0 { Text("· \(String(localized: "walk")) \(TimeText.walking(journey.walkingMeters))") }
+        Text(journey.transfers == 0 ? L10n.string("Direct") : L10n.string("\(journey.transfers) transfers"))
+        if journey.walkingMeters > 0 { Text("· \(L10n.string("walk")) \(TimeText.walking(journey.walkingMeters))") }
         if journey.usesLiveData {
           Label("Live", systemImage: "dot.radiowaves.left.and.right").foregroundStyle(.green).labelStyle(.titleAndIcon)
         }
@@ -531,7 +531,7 @@ struct JourneyCard: View {
       .font(.caption).foregroundStyle(.secondary)
       if let first = journey.rides.first {
         let minutes = Int(first.depart.timeIntervalSinceNow / 60)
-        Text(minutes <= 0 ? String(localized: "First bus is leaving now") : String(localized: "First bus in \(minutes) min from \(first.fromStop.name)"))
+        Text(minutes <= 0 ? L10n.string("First bus is leaving now") : L10n.string("First bus in \(minutes) min from \(first.fromStop.name)"))
           .font(.caption).foregroundStyle(.secondary)
       }
     }
@@ -541,9 +541,9 @@ struct JourneyCard: View {
 
   private func label(_ highlight: PlanModel.Highlight) -> String {
     switch highlight {
-    case .fastest: String(localized: "Fastest")
-    case .fewestTransfers: String(localized: "Fewest transfers")
-    case .leastWalking: String(localized: "Least walking")
+    case .fastest: L10n.string("Fastest")
+    case .fewestTransfers: L10n.string("Fewest transfers")
+    case .leastWalking: L10n.string("Least walking")
     }
   }
 }
@@ -645,7 +645,7 @@ struct JourneySteps: View {
               HStack(spacing: 8) {
                 Text("\(ride.stopCount) stops").foregroundStyle(.secondary)
                 if ride.isLive {
-                  Label(TimeText.delay(ride.delay) ?? String(localized: "Live"), systemImage: "dot.radiowaves.left.and.right")
+                  Label(TimeText.delay(ride.delay) ?? L10n.string("Live"), systemImage: "dot.radiowaves.left.and.right")
                     .foregroundStyle(.green)
                 } else {
                   Label("Scheduled", systemImage: "clock").foregroundStyle(.secondary)
@@ -791,7 +791,7 @@ struct PlanOptionsView: View {
   var body: some View {
     NavigationStack {
       PlanOptionsForm()
-        .navigationTitle("Trip options")
+        .navigationTitle(L10n.string("Trip options"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
           ToolbarItem(placement: .topBarTrailing) {
@@ -846,7 +846,7 @@ struct SavedPlacesView: View {
           .disabled(settings.values.recentTrips.isEmpty)
       }
     }
-    .navigationTitle("Saved places")
+    .navigationTitle(L10n.string("Saved places"))
     .toolbar { EditButton() }
   }
 }
@@ -875,7 +875,7 @@ struct SavedPlaceEditor: View {
           Button { choosingLocation = true } label: {
             VStack(alignment: .leading, spacing: 2) {
               Text("Change location")
-              Text(place.stopID == nil ? String(localized: "A point on the map") : String(localized: "A bus stop"))
+              Text(place.stopID == nil ? L10n.string("A point on the map") : L10n.string("A bus stop"))
                 .font(.caption).foregroundStyle(.secondary)
             }
           }

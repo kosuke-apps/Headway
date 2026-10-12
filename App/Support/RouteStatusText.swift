@@ -26,20 +26,20 @@ extension AppModel {
   /// The live status of a route in one direction (nil for both), in words.
   func liveStatus(route: String, direction: Int?, now: Date = Date()) -> RouteLiveStatus {
     let count = busCount(route: route, direction: direction)
-    if count > 0 { return RouteLiveStatus(kind: .buses(count), text: String(localized: "\(count) buses now")) }
+    if count > 0 { return RouteLiveStatus(kind: .buses(count), text: L10n.string("\(count) buses now")) }
     guard let outlook = outlook(route: route, direction: direction) else {
-      return RouteLiveStatus(kind: .unknown, text: String(localized: "No buses right now"))
+      return RouteLiveStatus(kind: .unknown, text: L10n.string("No buses right now"))
     }
     let next = outlook.nextStart.map { nextText($0, now: now) }
     switch outlook.today {
     case .none:
-      let base = String(localized: "Not running today")
-      return RouteLiveStatus(kind: .notToday, text: next.map { "\(base) · \(String(localized: "next \($0)"))" } ?? base)
+      let base = L10n.string("Not running today")
+      return RouteLiveStatus(kind: .notToday, text: next.map { "\(base) · \(L10n.string("next \($0)"))" } ?? base)
     case .runs(_, _, let trips):
-      if outlook.onRoadNow { return RouteLiveStatus(kind: .notReporting, text: String(localized: "A trip is scheduled but no bus is reporting")) }
-      var parts: [String] = [String(localized: "No buses right now")]
-      if outlook.isInfrequent { parts.append(String(localized: "only \(trips) trips today")) }
-      if let next { parts.append(String(localized: "next \(next)")) }
+      if outlook.onRoadNow { return RouteLiveStatus(kind: .notReporting, text: L10n.string("A trip is scheduled but no bus is reporting")) }
+      var parts: [String] = [L10n.string("No buses right now")]
+      if outlook.isInfrequent { parts.append(L10n.string("only \(trips) trips today")) }
+      if let next { parts.append(L10n.string("next \(next)")) }
       return RouteLiveStatus(kind: .between, text: parts.joined(separator: " · "))
     }
   }
@@ -53,7 +53,7 @@ extension AppModel {
     if calendar.isDate(date, inSameDayAs: now) { return text.clock(date) }
     let formatter = DateFormatter()
     formatter.timeZone = zone
-    formatter.locale = .autoupdatingCurrent
+    formatter.locale = LanguageState.shared.locale
     formatter.setLocalizedDateFormatFromTemplate("E")
     return "\(formatter.string(from: date)) \(text.clock(date))"
   }

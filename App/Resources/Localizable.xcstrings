@@ -4578,17 +4578,6 @@
         }
       }
     },
-    "%lld% early · %lld% on time · %lld% late": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "早い%lld% · 定時%lld% · 遅れ%lld%"
-          }
-        }
-      }
-    },
     "Licences": {
       "extractionState": "manual",
       "localizations": {
@@ -4739,6 +4728,50 @@
           "stringUnit": {
             "state": "translated",
             "value": "地図の色と層"
+          }
+        }
+      }
+    },
+    "Language": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "言語"
+          }
+        }
+      }
+    },
+    "System default": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "システムの既定"
+          }
+        }
+      }
+    },
+    "System default follows iOS Settings > Headway > Language. Dates, numbers and distances follow your phone's region. The location permission message and the app's name come from iOS and keep its language. The choice stays on this phone.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「システムの既定」は、iOS の設定 > Headway > 言語に従います。日付・数字・距離は、端末の地域設定に従います。位置情報の許可のメッセージとアプリ名は iOS が出すので、iOS の言語のままです。この選択は、この端末の中だけに保存されます。"
+          }
+        }
+      }
+    },
+    "%lld%% early · %lld%% on time · %lld%% late": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "早い%lld%% · 定時%lld%% · 遅れ%lld%%"
           }
         }
       }

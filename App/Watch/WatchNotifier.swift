@@ -63,18 +63,18 @@ final class WatchNotifier {
     switch event.kind {
     case .late:
       return (
-        String(localized: "Route \(routeName) is running late"),
-        String(localized: "Up to \(minutes) min behind the timetable · \(event.buses) buses")
+        L10n.string("Route \(routeName) is running late"),
+        L10n.string("Up to \(minutes) min behind the timetable · \(event.buses) buses")
       )
     case .early:
       return (
-        String(localized: "Route \(routeName) is running early"),
-        String(localized: "Up to \(minutes) min ahead of the timetable · \(event.buses) buses. Be at your stop a little early.")
+        L10n.string("Route \(routeName) is running early"),
+        L10n.string("Up to \(minutes) min ahead of the timetable · \(event.buses) buses. Be at your stop a little early.")
       )
     case .alert:
       let detail = event.detail.trimmingCharacters(in: .whitespacesAndNewlines)
-      let body = detail.isEmpty ? String(localized: "Route \(routeName)") : String(detail.prefix(160))
-      return (event.headline.isEmpty ? String(localized: "Route \(routeName)") : event.headline, body)
+      let body = detail.isEmpty ? L10n.string("Route \(routeName)") : String(detail.prefix(160))
+      return (event.headline.isEmpty ? L10n.string("Route \(routeName)") : event.headline, body)
     }
   }
 }
