@@ -88,20 +88,30 @@ Maps. See [PRIVACY.md](PRIVACY.md).
 
 ## Installing
 
-Headway is not on the App Store. There are two ways to get it onto an iPhone (iOS 17 or later); both need you to sign
-the app with your own Apple ID, because Apple only runs signed apps.
+Headway is not on the App Store. You put it on your own iPhone (iOS 17 or later), signed with your own Apple ID,
+because Apple only runs signed apps. There are two ways.
 
-**From a release (no Mac needed).** Each [release](https://github.com/kosuke-apps/Headway/releases) has an unsigned
-`Headway-<version>-unsigned.ipa` and its checksum. Check the download with
-`shasum -a 256 -c Headway-<version>-unsigned.ipa.sha256`, then install the `.ipa` with a sideloading tool that signs
-with your own Apple ID, such as [AltStore](https://altstore.io) or [Sideloadly](https://sideloadly.io). The file is
-deliberately unsigned, so it carries no signature of mine. With a free Apple ID, such tools are widely reported to
-install an app that stops opening after 7 days (it has to be signed again) and to allow three apps at a time; that
-comes from the tools' own pages and community reports, not from Apple's documentation, so check the tool's page for the
-current limits.
+**Build it yourself (the main way, and how the author installs it).** You need a Mac with Xcode and the tools under
+Getting started below. Connect the iPhone, then:
 
-**From source.** Build it with Xcode and put it on your own iPhone (or the simulator), as described below. With a free
-Apple ID the app has to be signed again every 7 days.
+```bash
+tools/fetch_basemap.sh && tools/fetch_timetable.sh && tools/build_punctuality.sh   # data the app bundles
+cp Config/Local.xcconfig.example Config/Local.xcconfig                             # then put your Apple Team ID in it
+tools/run_on_device.sh                                                             # builds, installs and starts it
+```
+
+`docs/run-on-iphone.md` has the one-time steps (Developer Mode on the phone, trusting your Apple ID the first time). With
+a free Apple ID the app has to be installed again every 7 days.
+
+**Or take a release build (no build needed, but a second tool is).** Each
+[release](https://github.com/kosuke-apps/Headway/releases) has an unsigned `Headway-<version>-unsigned.ipa` and its
+checksum. Check the download with `shasum -a 256 -c Headway-<version>-unsigned.ipa.sha256`, then install the `.ipa` with a
+sideloading tool that signs with your own Apple ID, such as [AltStore](https://altstore.io) or
+[Sideloadly](https://sideloadly.io). The file is deliberately unsigned, so it carries no signature of mine. With a free
+Apple ID, such tools are widely reported to install an app that stops opening after 7 days (it has to be signed again) and
+to allow three apps at a time; that comes from the tools' own pages and community reports, not from Apple's documentation,
+so check the tool's page for the current limits. The author has not tried this route; it is checked only as far as the
+file's contents (unsigned, licence texts present, no personal data).
 
 ## Getting started
 
@@ -116,8 +126,7 @@ xcodegen generate           # creates Headway.xcodeproj
 open Headway.xcodeproj      # run on a simulator or your iPhone
 ```
 
-To run on your own iPhone, see `docs/run-on-iphone.md` (`tools/run_on_device.sh` builds an optimised Release build and
-installs it). A free Apple ID works; the app must be re-signed every 7 days.
+To run on your own iPhone, see Installing above and `docs/run-on-iphone.md`.
 
 ## Data
 

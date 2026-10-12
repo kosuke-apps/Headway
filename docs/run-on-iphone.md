@@ -28,10 +28,10 @@ Program (USD 99 a year), so it is not used for now. The same applies to the App 
 
 ## Steps
 
-1. Already done on this Mac (Xcode > Settings > Accounts shows the Personal Team).
+1. Sign in to Xcode with your Apple ID (Xcode > Settings > Accounts shows the Personal Team it creates).
 2. iPhone: Settings > Privacy & Security > Developer Mode > on (the phone restarts). Connect it with a cable, unlock it
    and tap Trust.
-3. The team id lives in `Config/Local.xcconfig` (copy `Config/Local.xcconfig.example` on another machine) so that
+3. Put your team id in `Config/Local.xcconfig` (copy `Config/Local.xcconfig.example`; the file is not committed) so that
    `xcodegen generate` does not lose it.
 4. Build and install, either in Xcode (`xcodegen generate && open Headway.xcodeproj`, choose the iPhone, Run) or from
    the terminal:
