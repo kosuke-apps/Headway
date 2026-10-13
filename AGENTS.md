@@ -186,10 +186,10 @@ The author's general workspace rules (outside this repository) apply too; this f
 - Tools installed with Homebrew for this project: protobuf, swift-protobuf, pmtiles, xcodegen.
 - App: `xcodegen generate`, then
   `xcodebuild -project Headway.xcodeproj -scheme Headway -destination 'platform=iOS Simulator,name=iPhone 18 Pro' -derivedDataPath build/DerivedData build CODE_SIGNING_ALLOWED=NO`.
-- Tests: `swift test` (data layer, 120),
+- Tests: `swift test` (data layer),
   `xcodebuild test -project Headway.xcodeproj -scheme Headway -destination 'platform=iOS Simulator,name=iPhone 18 Pro' CODE_SIGNING_ALLOWED=NO`
-  (app, 42; use the simulator's UDID when two are booted) and `cd collector && npm test` (9; runs the Worker in
-  Cloudflare's runtime locally).
+  (app; use the simulator's UDID when two are booted) and `cd collector && npm test` (runs the Worker in Cloudflare's
+  runtime locally). The counts are in the README's Quality checks; update them there when tests are added.
 - Strings: `tools/add_strings.py` adds or updates Japanese translations in the catalog from JSON on stdin.
 - iPhone: `tools/run_on_device.sh` builds a Release build (the timetable loads about ten times faster than in Debug).
 - Collector: `collector/README.md` (setup, limits, taking it down); `python3 tools/pull_feeds.py [--status]` fetches what it
