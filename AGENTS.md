@@ -72,6 +72,11 @@ The author's general workspace rules (outside this repository) apply too; this f
     drawn by their own layers (`bus-idle-*`, pale with an orange ring and "!"); `BusNextTrip.of` finds the trip the trip
     updates list for the same bus (`feedanalysis layover` shows it on a recording), and the marker then shows that route
     and its first departure. Their route is not known, so they are not hidden by a focus unless that trip is on another route.
+  - Trips with no bus yet: a late bus has no position until it starts its trip, so a trip nobody has seen a bus on would
+    vanish from a stop's board the moment its timetable time passed. `Arrivals.upcoming` keeps it for
+    `Arrivals.unconfirmedGrace` (10 minutes; 7% of trips start more than 5 minutes late, 1% more than 10) unless the trip
+    updates say it is cancelled, and `Arrival.isUnconfirmed(at:)` makes the stop board say "No bus seen yet" and how long
+    ago it was due. The favourites summary on the service board leaves such rows out.
   - Punctuality detail: `PunctualityDetail` (opened from the bars in `StopSheet` through `PunctualityTarget`) draws
     `PunctualityTable.hourly` / `totals` with Swift Charts. Chart pitfalls met here: bars with both ends on both axes must be
     `RectangleMark` (`BarMark` has no such form, and the compiler then says only "failed to produce diagnostic"); a numeric

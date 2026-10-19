@@ -182,10 +182,14 @@ struct ArrivalRow: View {
             Text(arrival.headsign.prettyHeadsign).font(.body).lineLimit(1).layoutPriority(1)
             if let way = direction { Text(way).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
           }
-          LiveStatus(arrival: arrival, showDelay: model.settings.values.showDelayDetails, scheduled: nil, untracked: arrival.vehicle == nil)
+          LiveStatus(
+            arrival: arrival, showDelay: model.settings.values.showDelayDetails, scheduled: nil, untracked: arrival.vehicle == nil,
+            unconfirmed: arrival.isUnconfirmed(at: now))
         }
         Spacer(minLength: 8)
-        if full {
+        if arrival.isUnconfirmed(at: now) {
+          unconfirmedTimes(text)
+        } else if full {
           fullTimes(text)
         } else {
         VStack(alignment: .trailing, spacing: 1) {
@@ -219,6 +223,16 @@ struct ArrivalRow: View {
 }
 
 extension ArrivalRow {
+  /// The right side of a trip whose time has passed with no bus seen: the timetable's time, and how long ago that was.
+  @ViewBuilder fileprivate func unconfirmedTimes(_ text: TimeText) -> some View {
+    VStack(alignment: .trailing, spacing: 1) {
+      Text(text.clock(arrival.scheduled)).font(.title3).monospacedDigit()
+      let minutes = Int(now.timeIntervalSince(arrival.scheduled) / 60)
+      Text(minutes < 1 ? L10n.string("Due now") : L10n.string("Due \(minutes) min ago"))
+        .font(.caption.weight(.semibold)).foregroundStyle(.orange).monospacedDigit()
+    }
+  }
+
   /// The right side of a row that leads with the timetable: its time, then, for a bus that is live (or soon due), the
   /// countdown to when it is expected, coloured by how late or early it is.
   @ViewBuilder fileprivate func fullTimes(_ text: TimeText) -> some View {
