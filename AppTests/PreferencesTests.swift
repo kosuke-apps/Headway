@@ -18,6 +18,15 @@ import Testing
     #expect(prefs.favoriteStops.isEmpty)
   }
 
+  @Test func savingMobileDataIsOnUnlessTheRiderTurnedItOff() throws {
+    #expect(try decode(#"{}"#).saveMobileData)
+    #expect(try decode(#"{"saveMobileData":false}"#).saveMobileData == false)
+    var prefs = Preferences()
+    prefs.saveMobileData = false
+    let back = try JSONDecoder().decode(Preferences.self, from: JSONEncoder().encode(prefs))
+    #expect(back.saveMobileData == false)
+  }
+
   @Test func unknownValuesFallBackInsteadOfFailing() throws {
     let prefs = try decode(#"{"appearance":"sepia","updateInterval":7,"stopVisibility":42}"#)
     #expect(prefs.appearance == .system)

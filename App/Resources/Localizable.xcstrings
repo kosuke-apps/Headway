@@ -4776,17 +4776,6 @@
         }
       }
     },
-    "The city's feed is rebuilt about every 30 seconds and each bus reports about every 30 seconds (usually 25 to 35, sometimes up to a minute), so a position is about 25 seconds old when you see it. Automatic refresh asks right after each rebuild. Estimating moves each bus along its route at its last speed, and a bus drawn that way has a dashed ring; a veiled bus has not reported for over a minute. Predicted arrival times are fetched only while a stop or bus is open, the service board or planner is showing, or you are watching routes.": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "市のフィードは約30秒ごとに作り直され，各バスも約30秒ごと（ふつうは25〜35秒，長いときは1分ほど）に位置を報告するため，画面に出る位置は約25秒前のものです．「自動」は，作り直された直後に取得します．「推定」は，バスを最後の速度で経路に沿って動かします．そのように描かれたバスの外枠は点線です．薄く表示されたバスは1分以上報告がありません．到着予測は，バス停かバスを開いている間，運行情報や乗換案内を表示している間，路線を監視している間だけ取得します．"
-          }
-        }
-      }
-    },
     "Positions are %lld s old. Each bus reports about every 30 seconds (usually 25 to 35, sometimes up to a minute), and the city's feed is rebuilt about as often.": {
       "extractionState": "manual",
       "localizations": {
@@ -4838,6 +4827,105 @@
           "stringUnit": {
             "state": "translated",
             "value": "予定は%lld分前"
+          }
+        }
+      }
+    },
+    "The city's feed is rebuilt about every 30 seconds and each bus reports about every 30 seconds (usually 25 to 35, sometimes up to a minute), so a position is about 25 seconds old when you see it. Automatic refresh asks right after each rebuild. Estimating moves each bus along its route at its last speed, and a bus drawn that way has a dashed ring; a veiled bus has not reported for over a minute. Predicted arrival times (160 KB each time) are fetched only while a stop or bus is open, the service board or planner is showing, or you are watching routes: every minute for a stop, a bus or the planner, every two minutes otherwise. Save mobile data doubles that on mobile data and quadruples it in Low Data Mode, and downloads the timetable (7 MB, a few times a year) only on Wi-Fi. Bus positions alone use about 2 MB an hour.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "市のフィードは約30秒ごとに作り直され，各バスも約30秒ごと（ふつうは25〜35秒，長いときは1分ほど）に位置を報告するため，画面に出る位置は約25秒前のものです．「自動」は，作り直された直後に取得します．「推定」は，バスを最後の速度で経路に沿って動かします．そのように描かれたバスの外枠は点線です．薄く表示されたバスは1分以上報告がありません．到着予測（1回160 KB）は，バス停かバスを開いている間，運行情報や乗換案内を表示している間，路線を監視している間だけ取得します．バス停，バス，乗換案内は1分ごと，それ以外は2分ごとです．「モバイルデータを節約」をオンにすると，モバイルデータ回線では間隔が2倍，低データモードでは4倍になり，時刻表（7 MB，年に数回）はWi-Fi接続時にだけ取得します．バスの位置だけなら，1時間で約2 MBです．"
+          }
+        }
+      }
+    },
+    "Save mobile data": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "モバイルデータを節約"
+          }
+        }
+      }
+    },
+    "Earlier departures": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "過去の発車を表示"
+          }
+        }
+      }
+    },
+    "Even earlier": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "さらに前の発車"
+          }
+        }
+      }
+    },
+    "Back to now": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "現在に戻る"
+          }
+        }
+      }
+    },
+    "Later departures": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "あとの発車を表示"
+          }
+        }
+      }
+    },
+    "Now · %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "現在 · %@"
+          }
+        }
+      }
+    },
+    "Earlier · timetable only": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "過去 · 時刻表のみ"
+          }
+        }
+      }
+    },
+    "Passed": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通過済み"
           }
         }
       }

@@ -28,8 +28,11 @@ The author's general workspace rules (outside this repository) apply too; this f
   - `App/AppModel.swift`: observable app state. Loads the timetable (cache in Application Support, else the bundled
     seed, else a download; refreshes at most daily with a conditional request (ETag / Last-Modified, so an unchanged
     timetable costs a few hundred bytes) and swaps only when the feed version changes), polls vehicles (interval from
-    settings), fetches service alerts once a minute, fetches trip predictions while a stop or bus sheet, the service board
-    or the planner is open, or routes are watched (at most once a minute then), recomputes the stop board, and holds
+    settings), fetches service alerts once a minute, fetches trip predictions (160 KB each, most of the app's data) while a
+    stop or bus sheet, the service board or the planner is open, a route is in focus or routes are watched, at most every
+    minute for a stop, bus, planner or watched route and every two minutes otherwise, doubled on mobile data and
+    quadrupled in Low Data Mode while "Save mobile data" is on (`AppModel.predictionInterval`, `NetworkStatus`; the
+    timetable download also waits for Wi-Fi then, unless the copy is past its end date), recomputes the stop board, and holds
     selection (`ActiveSheet`), the map `focus` (routes, direction, ringed stops and buses) and camera requests.
   - Map overlay: after every parse the route lines, stops and `RouteNetwork` (stops per route and direction, variants
     with their destinations) are saved as a small plist (`App/Map/MapOverlay.swift`, `OverlayStore`). The next launch draws
@@ -73,10 +76,23 @@ The author's general workspace rules (outside this repository) apply too; this f
     updates list for the same bus (`feedanalysis layover` shows it on a recording), and the marker then shows that route
     and its first departure. Their route is not known, so they are not hidden by a focus unless that trip is on another route.
   - Trips with no bus yet: a late bus has no position until it starts its trip, so a trip nobody has seen a bus on would
-    vanish from a stop's board the moment its timetable time passed. `Arrivals.upcoming` keeps it for
-    `Arrivals.unconfirmedGrace` (10 minutes; 7% of trips start more than 5 minutes late, 1% more than 10) unless the trip
-    updates say it is cancelled, and `Arrival.isUnconfirmed(at:)` makes the stop board say "No bus seen yet" and how long
-    ago it was due. The favourites summary on the service board leaves such rows out.
+    vanish from a stop's board the moment its timetable time passed. `Arrivals.upcoming` keeps it in the list of what is
+    coming for `Arrivals.unconfirmedGrace` (20 minutes; 7% of trips start more than 5 minutes late, 1% more than 10, 0.3%
+    more than 15) unless the trip updates say it is cancelled, and `Arrival.isUnconfirmed(at:)` makes the stop board say
+    "No bus seen yet" and how long ago it was due. After that it is "gone" (`Arrival.hasGone(at:)`): nothing is deleted, it
+    moves to the earlier departures, and a bus that turns up makes it a live row again. The favourites summary on the
+    service board leaves unconfirmed rows out.
+  - The stop board (`StopSheet`) reaches back and forward on request: "Earlier departures" (an hour at a time, dimmed rows
+    marked "Earlier", with a "Now" line between them and what is coming), "Later departures" (three hours at a time) and
+    pull-down to go back to now and refresh (`AppModel.boardEarlier`, `boardWindow`, `resetBoard`; opening another stop
+    resets them). Earlier rows carry only what the timetable and the current feeds know.
+  - Data use (measured on 2026-10-19 with `nettop` on the simulator, Wi-Fi): a vehicle feed is 7 KB, the alerts 1 KB, the
+    trip updates 156 KB (none of them compressed by the city's server). Positions alone cost about 2 MB an hour; with a
+    stop open the trip updates, then fetched with every 30 s beat, made it about 22 MB an hour. The vehicle poll asks for
+    the next feed `PublishLag.estimate - 1` seconds after its stamp (learned from the feeds seen), not 1.5 s, so that it
+    does not download the unchanged feed again every two seconds until the server has published it. After both changes,
+    the same measurement with a stop open: trip updates every 60 to 80 s, positions and alerts 16 KB a minute (it was 34),
+    7 MB an hour in all.
   - Punctuality detail: `PunctualityDetail` (opened from the bars in `StopSheet` through `PunctualityTarget`) draws
     `PunctualityTable.hourly` / `totals` with Swift Charts. Chart pitfalls met here: bars with both ends on both axes must be
     `RectangleMark` (`BarMark` has no such form, and the compiler then says only "failed to produce diagnostic"); a numeric
