@@ -168,6 +168,7 @@ final class AppModel {
   @ObservationIgnored private var lastTripsFetch = Date.distantPast
   @ObservationIgnored private var feedTimestamp: Date?
   @ObservationIgnored private var feedPeriod: TimeInterval = 30
+  @ObservationIgnored private var publishLag = PublishLag()
   @ObservationIgnored private var periods: [TimeInterval] = []
 
   static let scheduleURL = URL(string: "https://transitdata.cityofmadison.com/GTFS/mmt_gtfs.zip")!
@@ -287,6 +288,29 @@ final class AppModel {
 
   var hiddenRoutes: Set<String> { settings.values.hiddenRoutes }
 
+  /// How far the stop board reaches back and forward from now. The rider can ask for earlier departures and for later ones;
+  /// opening another stop, or pulling the board down to refresh it, goes back to what is near now.
+  private(set) var boardEarlier: TimeInterval = 0
+  private(set) var boardWindow: TimeInterval = AppModel.defaultBoardWindow
+  private static let defaultBoardWindow: TimeInterval = 3 * 3600
+
+  func showEarlierDepartures() {
+    boardEarlier = min(boardEarlier + 3600, 12 * 3600)
+    refreshArrivals()
+  }
+
+  func showLaterDepartures() {
+    boardWindow = min(boardWindow + 3 * 3600, 24 * 3600)
+    refreshArrivals()
+  }
+
+  /// Back to the departures around now, and fresh data.
+  func resetBoard() {
+    boardEarlier = 0
+    boardWindow = Self.defaultBoardWindow
+    refreshArrivals()
+  }
+
   /// Arrivals for the selected stop, without routes the user hides (unless they asked to see them).
   var boardArrivals: [Arrival] {
     showHiddenRoutes ? arrivals : arrivals.filter { !hiddenRoutes.contains($0.routeID) }
@@ -331,6 +355,7 @@ final class AppModel {
   func start() async {
     guard !started else { return }
     started = true
+    NetworkStatus.shared.start()
     restartPolling()
     Task { await loadPunctuality() }
     // The saved copy of the map data shows every route right away; the timetable is parsed behind it.
@@ -748,6 +773,8 @@ final class AppModel {
 
   private func selectionChanged() {
     showHiddenRoutes = false
+    boardEarlier = 0
+    boardWindow = Self.defaultBoardWindow
     // Closing a bus sheet releases the line that selecting the bus put on the map, unless the bus waits in the dock.
     if sheet == nil, focus.fromBus, dockedVehicleID == nil { focus = MapFocus() }
     refreshArrivals()
@@ -900,6 +927,10 @@ final class AppModel {
     if !force, Date().timeIntervalSince(modified) < 86_400 { return .upToDate }
     var request = URLRequest(url: Self.scheduleURL)
     request.cachePolicy = .reloadIgnoringLocalCacheData
+    // The timetable is 7 MB and changes every few weeks: with "Save mobile data" on it waits for Wi-Fi, unless the copy the
+    // phone has is no longer valid, when a current one matters more than the data.
+    let expired = schedule?.feedEnd.map { $0.value < ServiceDate(Date(), in: schedule?.timeZone ?? .current).value } ?? false
+    if settings.values.saveMobileData, !expired, !force { request.allowsExpensiveNetworkAccess = false }
     let defaults = UserDefaults.standard
     if FileManager.default.fileExists(atPath: cache.path) {
       if let etag = defaults.string(forKey: Self.etagKey) { request.setValue(etag, forHTTPHeaderField: "If-None-Match") }
@@ -969,6 +1000,7 @@ final class AppModel {
   private func pollLoop() async {
     var unchanged = 0
     var lastChange = Date.distantPast
+    var scheduled = false  // the next request is the one timed for the next feed (not a retry, not the first after a start)
     while !Task.isCancelled {
       var delay = 10.0
       do {
@@ -976,6 +1008,10 @@ final class AppModel {
         let isNew = vehicles.isEmpty || snapshot.feedTimestamp == nil || snapshot.feedTimestamp != feedTimestamp
         if isNew {
           if let old = feedTimestamp, let new = snapshot.feedTimestamp, new > old { notePeriod(new.timeIntervalSince(old)) }
+          if scheduled, let stamp = snapshot.feedTimestamp, let serverNow = snapshot.serverDate {
+            publishLag.note(age: serverNow.timeIntervalSince(stamp))
+          }
+          scheduled = false
           feedTimestamp = snapshot.feedTimestamp
           vehicles = snapshot.vehicles
           vehicleDirections = directions(of: snapshot.vehicles)
@@ -995,8 +1031,10 @@ final class AppModel {
           delay = Double(fixed)
         } else if isNew, let stamp = snapshot.feedTimestamp, let serverNow = snapshot.serverDate {
           // The next feed is stamped one period after this one. The server's own clock says how far off that is, so the
-          // phone's clock does not matter. A second and a half leaves time for the server to publish it.
-          delay = min(45, max(2, stamp.addingTimeInterval(feedPeriod + 1.5).timeIntervalSince(serverNow)))
+          // phone's clock does not matter. A feed turns up on the server a few seconds after its stamp (`publishLag`,
+          // learned); asking a second before that costs at most one retry, asking much earlier costs several.
+          delay = min(45, max(2, stamp.addingTimeInterval(feedPeriod + publishLag.estimate - 1).timeIntervalSince(serverNow)))
+          scheduled = true
         } else if isNew {
           delay = max(2, lastChange.addingTimeInterval(feedPeriod - 1).timeIntervalSinceNow)
         } else {
@@ -1018,21 +1056,33 @@ final class AppModel {
     }
   }
 
-  /// Alerts (about 3 KB, change rarely) and trip predictions (about 250 KB, only needed while a stop, a bus, the service
-  /// board or the planner is open) ride along with a new vehicle feed.
+  /// Alerts (about 1 KB, change rarely) and trip predictions (about 160 KB, only needed while a stop, a bus, the service
+  /// board or the planner is open) ride along with a new vehicle feed. The predictions are most of the app's data: they
+  /// are fetched at most every `predictionInterval`, not with every beat of the vehicle feed.
   private func refreshSlowData() async {
     if Date().timeIntervalSince(lastAlertFetch) > 60 {
       lastAlertFetch = Date()
       if let snapshot = try? await client.fetch(.alerts) { alerts = snapshot.alerts }
     }
-    // Watching a route needs the predictions too, but a minute old is old enough.
-    let watching = settings.values.watchEnabled && !settings.values.watchedRoutes.isEmpty && Date().timeIntervalSince(lastTripsFetch) > 60
-    if sheet?.isDetail == true || mode != .map || watching || needsDelays {
+    let watching = settings.values.watchEnabled && !settings.values.watchedRoutes.isEmpty
+    if sheet?.isDetail == true || mode != .map || watching || needsDelays,
+      Date().timeIntervalSince(lastTripsFetch) >= predictionInterval(watching: watching)
+    {
       if let snapshot = try? await client.fetch(.trips) {
         predictions = snapshot.predictions
         lastTripsFetch = Date()
       }
     }
+  }
+
+  /// How old the trip updates may get before they are fetched again. A stop or bus on screen, the planner and a watched
+  /// route need them fresh (a minute); a focused route, a list or the service board only want the counts (two minutes).
+  /// On mobile data, or in Low Data Mode, with "Save mobile data" on, twice and four times as long. Measured before this
+  /// limit existed: 20 MB an hour with a stop open, against 2 MB an hour for the positions alone. A few seconds are taken
+  /// off, because the vehicle feed that triggers a fetch beats every 30 seconds.
+  func predictionInterval(watching: Bool) -> TimeInterval {
+    let urgent = sheet?.isDetail == true || mode == .plan || watching
+    return (urgent ? 60 : 120) * NetworkStatus.shared.slowdown(saving: settings.values.saveMobileData) - 5
   }
 
   // MARK: Watched routes
@@ -1148,13 +1198,17 @@ final class AppModel {
       return
     }
     let now = Date()
-    var found = Arrivals.upcoming(schedule: schedule, stopID: stopID, now: now, predictions: predictions, vehicles: vehicles)
+    func coming(_ list: [Arrival]) -> Bool { list.contains { !$0.hasGone(at: now) && !$0.isUnconfirmed(at: now) } }
+    var found = Arrivals.upcoming(
+      schedule: schedule, stopID: stopID, now: now, window: boardWindow, predictions: predictions, vehicles: vehicles,
+      earlier: boardEarlier)
     arrivalsAreLater = false
-    if found.isEmpty {
-      // Nothing in the next three hours (late at night): show when service resumes.
+    if !coming(found) {
+      // Nothing in the window (late at night): show when service resumes.
       found = Arrivals.upcoming(
-        schedule: schedule, stopID: stopID, now: now, window: 30 * 3600, predictions: predictions, vehicles: vehicles, limit: 6)
-      arrivalsAreLater = !found.isEmpty
+        schedule: schedule, stopID: stopID, now: now, window: 30 * 3600, predictions: predictions, vehicles: vehicles, limit: 6,
+        earlier: boardEarlier)
+      arrivalsAreLater = coming(found)
     }
     arrivals = found
   }

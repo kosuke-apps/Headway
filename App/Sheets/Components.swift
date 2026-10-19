@@ -40,10 +40,15 @@ struct LiveStatus: View {
   var untracked = false
   /// True when, besides that, the timetable time has passed: the bus may be late and not on its route yet.
   var unconfirmed = false
+  /// True for a departure that has gone, shown only because the rider asked for the earlier ones.
+  var departed = false
 
   var body: some View {
     HStack(spacing: 4) {
-      if arrival.status == .live {
+      if departed {
+        Image(systemName: "clock.arrow.circlepath").foregroundStyle(.secondary)
+        Text(arrival.vehicle != nil ? "Passed" : "Earlier · timetable only").foregroundStyle(.secondary).lineLimit(1)
+      } else if arrival.status == .live {
         Image(systemName: "dot.radiowaves.left.and.right")
           .foregroundStyle(.green)
           .symbolRenderingMode(.hierarchical)

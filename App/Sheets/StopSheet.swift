@@ -89,22 +89,31 @@ struct StopSheet: View {
         }
       }
       let arrivals = model.boardArrivals
+      earlierButtons
       if arrivals.isEmpty {
         Text(LocalizedStringKey(model.schedule == nil ? "Loading timetable…" : "No buses are scheduled here soon."))
           .foregroundStyle(.secondary)
           .frame(maxWidth: .infinity, alignment: .leading)
           .listRowSeparator(.hidden)
       } else {
-        if model.arrivalsAreLater {
-          Label("No more buses for a while. Service resumes:", systemImage: "moon.zzz")
-            .font(.footnote).foregroundStyle(.secondary).listRowSeparator(.hidden)
-        }
         // A stop served in more than one direction (a terminus, a loop) says which way each bus goes.
         let ways = Dictionary(uniqueKeysWithValues: arrivals.map { ($0.id, model.tripDirection($0.tripID)) })
         let mixed = Set(ways.values.compactMap { $0 }).count > 1
         TimelineView(.periodic(from: .now, by: 10)) { context in
+          let firstNotGone = arrivals.first { !$0.hasGone(at: context.date) }?.id
+          let firstComing = arrivals.first { !$0.hasGone(at: context.date) && !$0.isUnconfirmed(at: context.date) }?.id
+          let anyGone = arrivals.contains { $0.hasGone(at: context.date) }
           VStack(spacing: 0) {
             ForEach(arrivals) { arrival in
+              // Where "now" is, when earlier departures are shown above it.
+              if arrival.id == firstNotGone, anyGone { nowMarker(context.date) }
+              if arrival.id == firstComing {
+                if model.arrivalsAreLater {
+                  Label("No more buses for a while. Service resumes:", systemImage: "moon.zzz")
+                    .font(.footnote).foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16).padding(.vertical, 10)
+                }
+              }
               ArrivalRow(arrival: arrival, now: context.date, direction: mixed ? ways[arrival.id] ?? nil : nil)
               if arrival.id != arrivals.last?.id { Divider() }
             }
@@ -112,6 +121,10 @@ struct StopSheet: View {
         }
         .listRowInsets(EdgeInsets())
       }
+      Button { model.showLaterDepartures() } label: {
+        Label("Later departures", systemImage: "chevron.down").font(.subheadline).frame(maxWidth: .infinity)
+      }
+      .buttonStyle(.borderless)
       reliabilitySection
       if model.hiddenArrivalCount > 0 || model.showHiddenRoutes, !model.hiddenRoutes.isEmpty {
         Toggle(isOn: Bindable(model).showHiddenRoutes) {
@@ -124,10 +137,41 @@ struct StopSheet: View {
       }
     }
     .listStyle(.plain)
+    // Pulling the board down brings it back to the departures around now, with fresh data.
+    .refreshable {
+      model.resetBoard()
+      model.refreshNow()
+      try? await Task.sleep(for: .seconds(1))
+    }
   }
 }
 
 extension StopSheet {
+  /// Earlier departures, above the board: the first tap shows the last hour, each further tap an hour more.
+  @ViewBuilder fileprivate var earlierButtons: some View {
+    HStack(spacing: 16) {
+      Button { model.showEarlierDepartures() } label: {
+        Label(model.boardEarlier == 0 ? "Earlier departures" : "Even earlier", systemImage: "chevron.up").font(.subheadline)
+      }
+      .buttonStyle(.borderless)
+      if model.boardEarlier > 0 {
+        Button { model.resetBoard() } label: { Label("Back to now", systemImage: "clock").font(.subheadline) }
+          .buttonStyle(.borderless)
+      }
+    }
+    .frame(maxWidth: .infinity)
+  }
+
+  /// A line across the board at the current time.
+  fileprivate func nowMarker(_ now: Date) -> some View {
+    HStack(spacing: 8) {
+      Rectangle().fill(Color.accentColor.opacity(0.5)).frame(height: 1)
+      Text("Now · \(model.timeText().clock(now))").font(.caption.weight(.semibold)).foregroundStyle(Color.accentColor).monospacedDigit()
+      Rectangle().fill(Color.accentColor.opacity(0.5)).frame(height: 1)
+    }
+    .padding(.horizontal, 16).padding(.vertical, 6)
+  }
+
   /// How early, on time and late each route has been here at this time of day.
   @ViewBuilder fileprivate var reliabilitySection: some View {
     let routes = model.visibleRoutes(atStop: stopID)
@@ -170,6 +214,7 @@ struct ArrivalRow: View {
     // With the timetable's time first, the time at the right is the timetable's, and what is live (the countdown, how late
     // or early) goes under it: a live time never replaces the timetable's.
     let full = model.settings.values.showDelayDetails && model.settings.values.showScheduledTimes
+    let gone = arrival.hasGone(at: now)
     Button {
       if let vehicle = arrival.vehicle { model.selectBus(vehicle.id) }
     } label: {
@@ -184,10 +229,12 @@ struct ArrivalRow: View {
           }
           LiveStatus(
             arrival: arrival, showDelay: model.settings.values.showDelayDetails, scheduled: nil, untracked: arrival.vehicle == nil,
-            unconfirmed: arrival.isUnconfirmed(at: now))
+            unconfirmed: arrival.isUnconfirmed(at: now), departed: gone)
         }
         Spacer(minLength: 8)
-        if arrival.isUnconfirmed(at: now) {
+        if gone {
+          Text(text.clock(arrival.expected)).font(.title3).foregroundStyle(.secondary).monospacedDigit()
+        } else if arrival.isUnconfirmed(at: now) {
           unconfirmedTimes(text)
         } else if full {
           fullTimes(text)
@@ -216,6 +263,7 @@ struct ArrivalRow: View {
       .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
+    .opacity(gone ? 0.6 : 1)
     // Only buses with a position can be shown on the map; timetable-only rows stay fully legible but do nothing.
     .allowsHitTesting(arrival.vehicle != nil)
     .accessibilityElement(children: .combine)

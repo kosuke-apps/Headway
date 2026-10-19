@@ -87,6 +87,8 @@ struct Preferences: Codable, Equatable {
   /// Move each bus along its route at its last speed between reports.
   var estimateBusPositions = true
   var pauseLiveInBackground = true
+  /// On mobile data (or in Low Data Mode) fetch the large trip updates less often, and download the timetable only on Wi-Fi.
+  var saveMobileData = true
 
   // Time
   var clockFormat: ClockFormat = .system
@@ -152,6 +154,7 @@ struct Preferences: Codable, Equatable {
     smoothBusMovement = value(.smoothBusMovement, d.smoothBusMovement)
     estimateBusPositions = value(.estimateBusPositions, d.estimateBusPositions)
     pauseLiveInBackground = value(.pauseLiveInBackground, d.pauseLiveInBackground)
+    saveMobileData = value(.saveMobileData, d.saveMobileData)
     clockFormat = value(.clockFormat, d.clockFormat)
     arrivalStyle = value(.arrivalStyle, d.arrivalStyle)
     showDelayDetails = value(.showDelayDetails, d.showDelayDetails)
@@ -184,7 +187,7 @@ struct Preferences: Codable, Equatable {
 
   private enum Key: String, CodingKey {
     case language, appearance, routePalette, markerSize, showRouteNameOnBuses, routeLineWidth, focusStyle, focusFade, stopVisibility, showStopNames
-    case updateInterval, smoothBusMovement, estimateBusPositions, pauseLiveInBackground
+    case updateInterval, smoothBusMovement, estimateBusPositions, pauseLiveInBackground, saveMobileData
     case clockFormat, arrivalStyle, showDelayDetails, showScheduledTimes
     case hapticFeedback, rememberMapPosition
     case walkSpeed, maxWalkMeters, maxTransfers, transferSeconds, accessibleOnly, journeySort, reminderLeadMinutes

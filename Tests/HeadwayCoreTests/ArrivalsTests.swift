@@ -87,17 +87,55 @@ import Testing
     #expect(result.map(\.tripID) == ["t2"])
   }
 
-  @Test func aTripNobodyHasSeenABusOnStaysForTenMinutes() {
+  @Test func aTripNobodyHasSeenABusOnStaysForTwentyMinutes() {
     // 08:00 has passed and no bus reports the trip: it may just be late and not on its route yet.
     let result = Arrivals.upcoming(
       schedule: schedule, stopID: "s1", now: monday(8, 5), window: 20 * 3600, predictions: [], vehicles: [])
     #expect(result.map(\.tripID) == ["t1", "t2"])
     #expect(result[0].isUnconfirmed(at: monday(8, 5)))
     #expect(!result[1].isUnconfirmed(at: monday(8, 5)))
-    // Then it goes, so that a trip that never runs does not linger.
+    // Still there at 08:19, a bus 19 minutes late can turn up.
+    let nearly = Arrivals.upcoming(
+      schedule: schedule, stopID: "s1", now: monday(8, 19), window: 20 * 3600, predictions: [], vehicles: [])
+    #expect(nearly.map(\.tripID) == ["t1", "t2"])
+    // Then it leaves the list of what is coming, so that a trip that never runs does not linger.
     let later = Arrivals.upcoming(
-      schedule: schedule, stopID: "s1", now: monday(8, 11), window: 20 * 3600, predictions: [], vehicles: [])
+      schedule: schedule, stopID: "s1", now: monday(8, 21), window: 20 * 3600, predictions: [], vehicles: [])
     #expect(later.map(\.tripID) == ["t2"])
+  }
+
+  @Test func earlierDeparturesAreKeptWhenAskedFor() {
+    // At 08:30 the 08:00 trip is long gone from the list of what is coming, but the rider can open the earlier ones.
+    let now = monday(8, 30)
+    let normal = Arrivals.upcoming(schedule: schedule, stopID: "s1", now: now, window: 20 * 3600, predictions: [], vehicles: [])
+    #expect(normal.map(\.tripID) == ["t2"])
+    let withEarlier = Arrivals.upcoming(
+      schedule: schedule, stopID: "s1", now: now, window: 20 * 3600, predictions: [], vehicles: [], earlier: 3600)
+    #expect(withEarlier.map(\.tripID) == ["t1", "t2"])
+    #expect(withEarlier[0].hasGone(at: now))
+    #expect(!withEarlier[1].hasGone(at: now))
+    // Too far back is still left out.
+    let tooShort = Arrivals.upcoming(
+      schedule: schedule, stopID: "s1", now: now, window: 20 * 3600, predictions: [], vehicles: [], earlier: 600)
+    #expect(tooShort.map(\.tripID) == ["t2"])
+  }
+
+  @Test func earlierDeparturesDoNotUseUpTheLimit() {
+    let now = monday(8, 30)
+    let result = Arrivals.upcoming(
+      schedule: schedule, stopID: "s1", now: now, window: 20 * 3600, predictions: [], vehicles: [], limit: 1, earlier: 3600)
+    #expect(result.map(\.tripID) == ["t1", "t2"])
+  }
+
+  @Test func aBusThatTurnsUpVeryLateComesBackAsLive() {
+    // 08:00 trip, 25 minutes late: it is 08:25, it was in the earlier departures, and now a bus reports it.
+    let now = monday(8, 25)
+    let result = Arrivals.upcoming(
+      schedule: schedule, stopID: "s1", now: now, window: 20 * 3600,
+      predictions: [prediction(trip: "t1", stop: "s1", sequence: 1, at: monday(8, 27))], vehicles: [vehicle(trip: "t1")])
+    #expect(result.first?.tripID == "t1")
+    #expect(result.first?.status == .live)
+    #expect(result.first?.hasGone(at: now) == false)
   }
 
   @Test func aTripIsNotUnconfirmedBeforeItsTimeOrWhileABusReportsIt() {
