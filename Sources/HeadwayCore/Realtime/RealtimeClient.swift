@@ -16,10 +16,15 @@ public struct RealtimeClient: Sendable {
 
   private let baseURL: URL
   private let session: URLSession
+  private let onTransfer: (@Sendable (RealtimeFeed, Int) -> Void)?
 
-  public init(baseURL: URL = RealtimeClient.madisonBaseURL, session: URLSession = .shared) {
+  /// `onTransfer` is told how many bytes of body each successful request downloaded (the app's data meter).
+  public init(
+    baseURL: URL = RealtimeClient.madisonBaseURL, session: URLSession = .shared, onTransfer: (@Sendable (RealtimeFeed, Int) -> Void)? = nil
+  ) {
     self.baseURL = baseURL
     self.session = session
+    self.onTransfer = onTransfer
   }
 
   static func parseHTTPDate(_ text: String?) -> Date? {
@@ -36,6 +41,7 @@ public struct RealtimeClient: Sendable {
     request.timeoutInterval = 10
     request.cachePolicy = .reloadIgnoringLocalCacheData
     let (data, response) = try await session.data(for: request)
+    onTransfer?(feed, data.count)
     var serverDate: Date?
     if let http = response as? HTTPURLResponse {
       if !(200..<300).contains(http.statusCode) { throw RealtimeError.badStatus(http.statusCode) }

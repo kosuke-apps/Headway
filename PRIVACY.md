@@ -11,6 +11,8 @@ to the author. This was checked against the source on 2026-10-10 (every network 
 - **Your settings, favourite stops and routes, saved places (Home, Work, ...), saved and recent trips, and the routes you
   watch.** They are stored in the app's own storage on the phone (they are part of an iCloud or computer backup of the
   phone if you make one) and nowhere else. "Reset settings" clears the settings and keeps the favourites.
+- **A data meter** (Settings > Live buses > the icon next to "Save mobile data"): how many bytes of each kind the app has
+  downloaded, on Wi-Fi and on mobile data, since a date you can reset. It is counted by the app and stays on the phone.
 - **Notifications** about watched routes and trip reminders are scheduled on the phone. Headway does not use push
   notifications.
 

@@ -4831,17 +4831,6 @@
         }
       }
     },
-    "The city's feed is rebuilt about every 30 seconds and each bus reports about every 30 seconds (usually 25 to 35, sometimes up to a minute), so a position is about 25 seconds old when you see it. Automatic refresh asks right after each rebuild. Estimating moves each bus along its route at its last speed, and a bus drawn that way has a dashed ring; a veiled bus has not reported for over a minute. Predicted arrival times (160 KB each time) are fetched only while a stop or bus is open, the service board or planner is showing, or you are watching routes: every minute for a stop, a bus or the planner, every two minutes otherwise. Save mobile data doubles that on mobile data and quadruples it in Low Data Mode, and downloads the timetable (7 MB, a few times a year) only on Wi-Fi. Bus positions alone use about 2 MB an hour.": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "市のフィードは約30秒ごとに作り直され，各バスも約30秒ごと（ふつうは25〜35秒，長いときは1分ほど）に位置を報告するため，画面に出る位置は約25秒前のものです．「自動」は，作り直された直後に取得します．「推定」は，バスを最後の速度で経路に沿って動かします．そのように描かれたバスの外枠は点線です．薄く表示されたバスは1分以上報告がありません．到着予測（1回160 KB）は，バス停かバスを開いている間，運行情報や乗換案内を表示している間，路線を監視している間だけ取得します．バス停，バス，乗換案内は1分ごと，それ以外は2分ごとです．「モバイルデータを節約」をオンにすると，モバイルデータ回線では間隔が2倍，低データモードでは4倍になり，時刻表（7 MB，年に数回）はWi-Fi接続時にだけ取得します．バスの位置だけなら，1時間で約2 MBです．"
-          }
-        }
-      }
-    },
     "Save mobile data": {
       "extractionState": "manual",
       "localizations": {
@@ -4926,6 +4915,270 @@
           "stringUnit": {
             "state": "translated",
             "value": "通過済み"
+          }
+        }
+      }
+    },
+    "The city's feed is rebuilt about every 30 to 40 seconds and each bus reports about every 30 seconds (usually 25 to 35, sometimes up to a minute), so a position is about 25 seconds old when you see it. Automatic refresh asks right after each rebuild. Estimating moves each bus along its route at its last speed, and a bus drawn that way has a dashed ring; a veiled bus has not reported for over a minute. Bus positions are never slowed by a data setting.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "市のフィードは約30〜40秒ごとに作り直され，各バスも約30秒ごと（ふつうは25〜35秒，長いときは1分ほど）に位置を報告するため，画面に出る位置は約25秒前のものです．「自動」は，作り直された直後に取得します．「推定」は，バスを最後の速度で経路に沿って動かします．そのように描かれたバスの外枠は点線です．薄く表示されたバスは1分以上報告がありません．バスの位置は，データの設定では遅くなりません．"
+          }
+        }
+      }
+    },
+    "Mobile data settings": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "モバイルデータの設定"
+          }
+        }
+      }
+    },
+    "Mobile data": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "モバイルデータ"
+          }
+        }
+      }
+    },
+    "With the refresh set to Automatic, arrival predictions are fetched half as often on mobile data and a quarter as often in Low Data Mode. Mobile data here includes a personal hotspot.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更新が「自動」のとき，到着予測の取得は，モバイルデータ通信では半分の頻度，低データモードでは4分の1の頻度になります．ここでのモバイルデータ通信には，インターネット共有も含みます．"
+          }
+        }
+      }
+    },
+    "Bus positions": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "バスの位置"
+          }
+        }
+      }
+    },
+    "Always live": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "常にライブ"
+          }
+        }
+      }
+    },
+    "7 KB per update, about 2 MB an hour. No data setting slows them down: they follow the city's feed (Refresh, under Live buses).": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1回7 KB，1時間で約2 MB です．データの設定では遅くなりません．市のフィードの更新に合わせて取得します（「ライブのバス」の「更新」）．"
+          }
+        }
+      }
+    },
+    "Arrival predictions": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "到着予測"
+          }
+        }
+      }
+    },
+    "On Wi-Fi": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi接続時"
+          }
+        }
+      }
+    },
+    "On mobile data": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "モバイルデータ通信時"
+          }
+        }
+      }
+    },
+    "160 KB each time, most of what the app downloads. Automatic: every minute while a stop, a bus or the planner is open or a route is watched, every two minutes for lists and a focused route. Manual: only when a stop or bus opens or you pull the stop's list down; watched routes are still checked every five minutes.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1回160 KB で，アプリの通信量の大半を占めます．「自動」は，バス停，バス，乗換案内を開いている間と路線を監視している間は1分ごと，一覧や路線の絞り込みでは2分ごとです．「手動」は，バス停かバスを開いたときと，バス停の一覧を下に引いたときだけで，監視中の路線は5分ごとに確認します．"
+          }
+        }
+      }
+    },
+    "Every 2 minutes": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2分ごと"
+          }
+        }
+      }
+    },
+    "Every 5 minutes": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5分ごと"
+          }
+        }
+      }
+    },
+    "Manual": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "手動"
+          }
+        }
+      }
+    },
+    "Only on Wi-Fi": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi接続時のみ"
+          }
+        }
+      }
+    },
+    "7 MB, a few times a year. It is allowed on any connection when the phone's copy has expired.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "7 MB で，年に数回です．手元の時刻表の期限が切れているときは，どの接続でも取得します．"
+          }
+        }
+      }
+    },
+    "Reset the data meter?": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "データ量の記録をリセットしますか？"
+          }
+        }
+      }
+    },
+    "Reset": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "リセット"
+          }
+        }
+      }
+    },
+    "Total": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "合計"
+          }
+        }
+      }
+    },
+    "Service alerts": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "運行情報"
+          }
+        }
+      }
+    },
+    "Reset the meter": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "記録をリセット"
+          }
+        }
+      }
+    },
+    "Data used since %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@からの通信量"
+          }
+        }
+      }
+    },
+    "What Headway downloaded, counted by the app: the data itself, without the headers of each request, so iOS Settings (Cellular) shows a little more.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Headway が取得したデータ量を，アプリ側で数えたものです．各通信のヘッダは含まないため，iOS の設定（モバイル通信）の数字はこれより少し多くなります．"
+          }
+        }
+      }
+    },
+    "Wi-Fi %@ · Mobile %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi %@ · モバイル %@"
           }
         }
       }

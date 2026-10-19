@@ -10,7 +10,9 @@ the data the city publishes (see Data below), and bus times can differ from what
 
 - **Offline map.** The Madison-area basemap is stored in the app; only the live data needs a connection: the bus
   positions (7 KB per update, about 2 MB an hour) and, while a stop or bus is open, the arrival predictions (160 KB, at
-  most once a minute). "Save mobile data" in Settings halves that on mobile data and keeps the 7 MB timetable for Wi-Fi.
+  most once a minute). Settings > Live buses > "Save mobile data" (and the icon beside it) lets you choose how often
+  predictions are fetched on Wi-Fi and on mobile data, keeps the 7 MB timetable for Wi-Fi, and shows a data meter. Live bus
+  positions are never slowed by a data setting.
 - **Everything visible at once.** All routes, all stops (names appear when zoomed in) and all buses, with the route
   name on each bus.
 - **Live arrivals.** Tap a stop to see the next buses, live where a bus is reporting ("4 min · 1 min late") and from
@@ -150,7 +152,7 @@ To run on your own iPhone, see Installing above and `docs/run-on-iphone.md`.
 ```bash
 swift test                                                       # data layer (147 tests)
 xcodebuild test -project Headway.xcodeproj -scheme Headway \
-  -destination 'platform=iOS Simulator,name=iPhone 18 Pro' CODE_SIGNING_ALLOWED=NO   # app tests (75)
+  -destination 'platform=iOS Simulator,name=iPhone 18 Pro' CODE_SIGNING_ALLOWED=NO   # app tests (83)
 (cd collector && npm test)                                       # collector, in Cloudflare's runtime (9 tests)
 ```
 

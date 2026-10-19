@@ -32,6 +32,9 @@ final class NetworkStatus: @unchecked Sendable {
     monitor.start(queue: DispatchQueue(label: "dev.kosuke.headway.network"))
   }
 
+  /// True on mobile data, a personal hotspot or in Low Data Mode: where the rider's data choices for "mobile" apply.
+  var isMetered: Bool { isExpensive || isConstrained }
+
   /// How much longer than usual to wait between large downloads: 1 on Wi-Fi, 2 on mobile data, 4 in Low Data Mode.
   /// `saving` is the rider's "Save mobile data" choice; without it the connection is treated as free.
   func slowdown(saving: Bool) -> Double {

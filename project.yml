@@ -11,8 +11,8 @@ configFiles:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.6.6"
-    CURRENT_PROJECT_VERSION: "14"
+    MARKETING_VERSION: "0.6.7"
+    CURRENT_PROJECT_VERSION: "15"
 packages:
   Headway:
     path: .

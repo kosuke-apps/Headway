@@ -91,6 +91,17 @@ The author's general workspace rules (outside this repository) apply too; this f
   - Live bus positions are never throttled: not by "Save mobile data", not by the connection. Only the rider's own "Refresh"
     setting (automatic, 30 s, 1 min) changes the vehicle poll, and the larger downloads (`startSlowData`: alerts, trip
     predictions, watched routes) run beside it, one at a time, so that a slow connection cannot delay the positions.
+  - The data screen (`App/Sheets/DataSettingsView.swift`, opened by the icon beside "Save mobile data" in Settings > Live
+    buses): "Save mobile data", the refresh of predictions on Wi-Fi and on mobile data (`PredictionRefresh`: automatic,
+    30 s, 1 min, 2 min, 5 min, manual; `AppModel.predictionInterval`), the timetable on Wi-Fi only
+    (`timetableOnlyOnWiFi`), and a data meter (`DataMeter`, `DataUsage`: bytes of response bodies by `DataKind` and by
+    Wi-Fi or "metered", `NetworkStatus.isMetered` = expensive or Low Data Mode; `RealtimeClient.onTransfer` reports each
+    fetch). Service alerts have no setting: they are 1 KB a minute. Opening a stop, a bus or a list fetches fresh
+    predictions at once (`ensurePredictions`, over 30 s old), whatever the refresh setting says.
+  - The vehicle poll keeps its place in its cycle in `nextPollAt` and the `poll*` properties: restarting it (a sheet
+    opening, a mode change) waits for the scheduled time instead of asking at once and then retrying every two seconds
+    (that was up to eight extra 7 KB requests for every sheet opened); only the foreground, the first start and "refresh
+    now" ask at once (`restartPolling(immediately:)`).
   - Data use (measured on 2026-10-19 with `nettop` on the simulator, Wi-Fi): a vehicle feed is 7 KB, the alerts 1 KB, the
     trip updates 156 KB (none of them compressed by the city's server). Positions alone cost about 2 MB an hour; with a
     stop open the trip updates, then fetched with every 30 s beat, made it about 22 MB an hour. The vehicle poll asks for

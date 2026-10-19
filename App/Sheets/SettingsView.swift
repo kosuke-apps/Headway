@@ -7,6 +7,7 @@ struct SettingsView: View {
   @State private var confirmReset = false
   @State private var refreshing = false
   @State private var refreshMessage: LocalizedStringKey?
+  @State private var showingDataSettings = false
 
   /// The two stored switches as one choice: off, minutes, or minutes with the timetable's time.
   private var delayDetailBinding: Binding<DelayDetail> {
@@ -93,11 +94,21 @@ struct SettingsView: View {
           Toggle("Estimate positions between reports", isOn: $settings.values.estimateBusPositions)
           Toggle("Smooth bus movement", isOn: $settings.values.smoothBusMovement)
           Toggle("Pause in the background", isOn: $settings.values.pauseLiveInBackground)
-          Toggle("Save mobile data", isOn: $settings.values.saveMobileData)
+          // The icon opens the detailed data settings (how often predictions are fetched, the timetable, a data meter).
+          HStack(spacing: 10) {
+            Text("Save mobile data")
+            Button { showingDataSettings = true } label: {
+              Image(systemName: "slider.horizontal.3").font(.body).foregroundStyle(Color.accentColor).frame(width: 32, height: 32)
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel(Text("Mobile data settings"))
+            Spacer(minLength: 8)
+            Toggle("Save mobile data", isOn: $settings.values.saveMobileData).labelsHidden()
+          }
         } header: {
           Text("Live buses")
         } footer: {
-          Text("The city's feed is rebuilt about every 30 seconds and each bus reports about every 30 seconds (usually 25 to 35, sometimes up to a minute), so a position is about 25 seconds old when you see it. Automatic refresh asks right after each rebuild. Estimating moves each bus along its route at its last speed, and a bus drawn that way has a dashed ring; a veiled bus has not reported for over a minute. Predicted arrival times (160 KB each time) are fetched only while a stop or bus is open, the service board or planner is showing, or you are watching routes: every minute for a stop, a bus or the planner, every two minutes otherwise. Save mobile data doubles that on mobile data and quadruples it in Low Data Mode, and downloads the timetable (7 MB, a few times a year) only on Wi-Fi. Bus positions alone use about 2 MB an hour.")
+          Text("The city's feed is rebuilt about every 30 to 40 seconds and each bus reports about every 30 seconds (usually 25 to 35, sometimes up to a minute), so a position is about 25 seconds old when you see it. Automatic refresh asks right after each rebuild. Estimating moves each bus along its route at its last speed, and a bus drawn that way has a dashed ring; a veiled bus has not reported for over a minute. Bus positions are never slowed by a data setting.")
         }
 
         Section {
@@ -189,6 +200,7 @@ struct SettingsView: View {
       }
       .navigationTitle(L10n.string("Settings"))
       .navigationBarTitleDisplayMode(.inline)
+      .navigationDestination(isPresented: $showingDataSettings) { DataSettingsView() }
       .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } } }
       .confirmationDialog(Text(L10n.string("Reset all settings?")), isPresented: $confirmReset, titleVisibility: .visible) {
         Button("Reset settings", role: .destructive) { model.settings.reset() }
