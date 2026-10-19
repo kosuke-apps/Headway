@@ -81,8 +81,8 @@ struct MapContainer: UIViewRepresentable {
     }
     state.prefs = MapPreferences(model.settings.values)
     state.focus = model.focus
-    state.selectedStop = model.selectedStopID
-    state.selectedVehicle = model.selectedVehicle?.id
+    state.selectedStop = model.markedStopID
+    state.selectedVehicle = model.markedVehicleID
     state.isDark = colorScheme == .dark
     state.bottomInset = bottomInset
     state.locationAuthorized = model.location.isAuthorized

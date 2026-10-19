@@ -8,7 +8,6 @@ struct RootView: View {
   private static let detailHeight: CGFloat = 320
 
   var body: some View {
-    @Bindable var model = model
     ZStack(alignment: .top) {
       MapContainer(bottomInset: model.sheet?.isDetail == true ? Self.detailHeight : 0)
         .ignoresSafeArea()
@@ -33,12 +32,12 @@ struct RootView: View {
           .padding(.top, 54)
           .padding(.trailing, 12)
 
-        // A journey stays on the map after its sheet is gone; this is the way back to it.
-        if model.mapJourney != nil, model.sheet == nil {
-          JourneyBar()
-            .frame(maxHeight: .infinity, alignment: .bottom)
-            .padding(.horizontal, 12)
-            .padding(.bottom, 8)
+        // A stop, a bus or a journey that was put away stays on the map; this is the way back to it.
+        if model.sheet == nil, model.hasDock {
+          Dock()
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+            .padding(.trailing, 12)
+            .padding(.bottom, 30)
         }
       }
       if model.mode == .info {
@@ -52,14 +51,15 @@ struct RootView: View {
       }
       MenuDrawer()
     }
-    .sheet(item: $model.sheet) { sheet in
+    // Swiping a stop or bus sheet down puts it into the dock instead of losing it.
+    .sheet(item: Binding(get: { model.sheet }, set: { if $0 == nil { model.minimizeSheet() } else { model.sheet = $0 } })) { sheet in
       switch sheet {
       case .stop(let id):
         StopSheet(stopID: id).modifier(DetailSheetStyle(height: Self.detailHeight))
       case .bus(let id):
         BusSheet(vehicleID: id).modifier(DetailSheetStyle(height: Self.detailHeight))
       case .journey:
-        // Dragged all the way down, the journey goes into the bar at the bottom of the map.
+        // Swiped down, the journey goes into the dock at the bottom of the map.
         JourneySheet().modifier(DetailSheetStyle(height: Self.detailHeight))
       case .settings:
         // Half height with the map still usable, so a change (colours, marker size) can be watched on the map.
@@ -194,42 +194,6 @@ private struct EdgeSwipeArea: View {
       .frame(maxWidth: .infinity, alignment: .leading)
       .ignoresSafeArea()
       .accessibilityHidden(true)
-  }
-}
-
-/// The journey drawn on the map, as a bar at the bottom: tap it to bring the steps back, or close the journey.
-private struct JourneyBar: View {
-  @Environment(AppModel.self) private var model
-
-  var body: some View {
-    if let journey = model.mapJourney {
-      let text = model.timeText()
-      HStack(spacing: 12) {
-        Button { model.sheet = .journey } label: {
-          HStack(spacing: 10) {
-            Image(systemName: "arrow.triangle.turn.up.right.diamond.fill").foregroundStyle(.blue)
-            VStack(alignment: .leading, spacing: 1) {
-              Text("\(text.clock(journey.departure)) → \(text.clock(journey.arrival))").font(.subheadline.weight(.semibold)).monospacedDigit()
-              Text("Show journey steps").font(.caption).foregroundStyle(.secondary)
-            }
-            Spacer(minLength: 0)
-            Image(systemName: "chevron.up").font(.footnote.weight(.semibold)).foregroundStyle(.secondary)
-          }
-          .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        Button { model.clearJourney() } label: {
-          Image(systemName: "xmark.circle.fill").font(.title3).symbolRenderingMode(.hierarchical).foregroundStyle(.secondary).frame(width: 36, height: 44)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(Text("Close"))
-      }
-      .padding(.horizontal, 14)
-      .padding(.vertical, 4)
-      .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-      // Swiping the bar up brings the steps back, like pulling up a sheet.
-      .gesture(DragGesture(minimumDistance: 10).onEnded { if $0.translation.height < -30 { model.sheet = .journey } })
-    }
   }
 }
 

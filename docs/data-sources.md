@@ -69,6 +69,12 @@ So a position on screen is about 25 s old on average and can be nearly a minute 
 10-second poll returned the same data. The response has a `Date` header (the server's clock), which the app uses to
 fetch right after each rebuild.
 
+Measured again on 2026-10-18 over all recordings of 2026-10-03 to 2026-10-08 (13,173 fetches, 152 buses with at least
+20 reports; `feedanalysis freshness data/feeds`): every bus has the same typical interval (each bus's median is 30 to 32 s),
+but single intervals vary. 68% are 25 to 35 s, 13% are shorter, 16% are 35 to 50 s, 3% are 50 to 90 s and 0.6% are 90 s or
+more. The feed itself changes every 30 s at the median (p90 39 s). "About every 30 seconds" is therefore right for every bus,
+and an interval of up to a minute is not unusual.
+
 ## How good the live predictions are (first 3 hours of recordings, Saturday evening)
 
 Predicted arrival at a stop compared with the arrival observed afterwards from bus positions (error in seconds, median
@@ -88,6 +94,33 @@ close in. Observed punctuality over the same hours: about 11% of arrivals more t
 
 No public history of on-time performance by stop was found (the city publishes ridership and annual reports), so the
 statistics are built from the project's own recordings.
+
+## Early buses, holding at stops, and trips whose bus has not started (checked 2026-10-18)
+
+Recordings 2026-10-03 to 2026-10-08; observed arrivals are the 230,730 of 2026-10-03 to 2026-10-07 in
+`data/punctuality/observations.sqlite` (the bus's position projected onto its route, so each arrival is good to about
+half a minute).
+
+- How early buses run: 6.6% of arrivals were more than 2 minutes early, 3.4% more than 3, 1.2% more than 5. 13% were more
+  than 5 minutes late. Very early buses exist but are rare.
+- Holding at timepoints is not visible in the data. At the 14% of stops that `stop_times.txt` marks as timepoints, buses
+  were not less often early than at other stops (15.6% more than a minute early, against 13.3%), and a bus that arrived
+  more than 2 minutes early at a timepoint was still a median 192 s early at the next stop (the lead changed by 12 s). A
+  bus that waits would show up as a lead that shrinks. The 30-second position reports cannot show a short wait directly.
+- Dwell time and skipped stops cannot be measured with this feed: vehicle positions carry no stop id or status
+  (`current_status`), and a typical stop lasts less than the 30 s between reports. The `SKIPPED` flag in trip updates marks
+  stops the service skips (detours), not stops where nobody got on or off.
+- The live predictions do follow early buses: for arrivals that were more than 3 minutes early, the predictions made 0 to
+  10 minutes ahead implied a median 145 s ahead of the timetable (`feedanalysis early data/feeds`).
+- Trips whose bus has not started them: 31% of the predictions that have an assigned bus are for a trip whose bus is still
+  on its previous trip. Their error is only a little smaller than the timetable's (median 72 s against 83 s, p90 243 s
+  against 290 s), and they under-report lateness: for arrivals more than 5 minutes late the implied delay was a median
+  156 s (a bus already on the trip: 365 s). Predictions for buses already on the trip: median error 64 s against 123 s
+  for the timetable (`feedanalysis notstarted data/feeds`). Of 86 buses on a trip in one snapshot, 27 had the next trip
+  listed.
+- Late starts: at the first observed stop, 7.3% of trips were more than 5 minutes late, 0.9% more than 10, 0.3% more than
+  15; 2.7% of trips in progress had no bus position at all. A trip that has no bus yet is the one that looks "gone" on a
+  stop's board once its timetable time has passed.
 
 ## Alerts
 

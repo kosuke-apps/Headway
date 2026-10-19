@@ -86,7 +86,20 @@ The author's general workspace rules (outside this repository) apply too; this f
   - Bus markers: the route name and the pattern number from the headsign ("D2") inside, the ring white for trip direction 1
     and black for 0 (mostly east/north and west/south), and a small letter beside it from the feed's `trip_direction_name`
     ("E", "W", "N", "S", "In", "Out"; loops have none). The feed's own `bearing` is not used: a bus changes it at every turn,
-    and the trip's direction is what a rider means by "eastbound".
+    and the trip's direction is what a rider means by "eastbound". A bus moved on from its last report (dead reckoning,
+    `DrawnBus.estimated`) has a dashed ring instead of a solid one: a symbol layer per route (`bus-estimate-*`) with
+    pre-drawn dashed ring images (`bus-ring-1|0|x`), because a circle layer cannot be dashed; the solid ring layers draw only
+    the buses with `est == false`.
+  - Opening a bus: `AppModel.selectBus` puts the line of that bus's own trip on the map (`tripFocus`: its route, direction
+    and, where the direction has several destinations, only its destination, so D2 shows Epic Campus or Verona, not both).
+    It replaces a focus that an earlier bus started (`fromBus`) and one that would hide the bus, but keeps a focus the rider
+    chose that already shows it (`AppModel.focus(_:shows:...)`).
+  - The dock (`App/Sheets/Dock.swift`): swiping a stop or bus sheet down (the `.sheet` binding's setter in `RootView` calls
+    `AppModel.minimizeSheet`), opening the menu or leaving the map puts it into `dockedStopID` / `dockedVehicleID` instead
+    of losing it. At the bottom right, stacked, wait one chip per item (bus, stop, journey); a tap or a swipe up brings the
+    sheet back, the cross lets go of it (and of the bus's line on the map). The map keeps a docked stop or bus marked
+    (`markedStopID`, `markedVehicleID`). The sheet's own cross and a tap on the empty map still close for good. A docked
+    bus that stops reporting is dropped.
   - Stops: `cardinal_direction` in stops.txt gives the way each stop's buses go; the stop sheet, search, planner steps,
     the timetable and an arrow beside each stop on the map show it (`Compass`, `AppModel.stopSide`).
   - `Sources/HeadwayCore/ServiceOutlook.swift` (today's first/last trip and the next trip of a route and direction),
@@ -205,7 +218,10 @@ The author's general workspace rules (outside this repository) apply too; this f
   `data/feeds/`, a snapshot saved only when it changed, about 15 MB a day). A nightly job (04:30) runs
   `tools/build_punctuality.sh`, which turns recorded bus positions into observed arrival times (SQLite,
   `data/punctuality/observations.sqlite`) and exports `data/punctuality/punctuality.json`, which the app bundles.
-  `feedanalysis freshness|accuracy|punctuality` explain the feed's real latency, prediction accuracy and punctuality.
+  `feedanalysis freshness|accuracy|punctuality` explain the feed's real latency, prediction accuracy and punctuality;
+  `early` (what the predictions said about arrivals that were early or late) and `notstarted` (predictions for trips whose
+  bus is still on its previous trip) answer the two questions that came up from riding; their results are in
+  `docs/data-sources.md`.
 - Format, lint: not set up yet.
 
 ## Known limits and next steps

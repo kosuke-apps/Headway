@@ -3750,17 +3750,6 @@
         }
       }
     },
-    "The city's feed is rebuilt every 30 seconds and each bus reports every 30 seconds, so a position is about 25 seconds old when you see it. Automatic refresh asks right after each rebuild. Estimating moves each bus along its route at its last speed; a veiled bus has not reported for over a minute. Predicted arrival times are fetched only while a stop or bus is open, the service board or planner is showing, or you are watching routes.": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "市のフィードは30秒ごとに作り直され，各バスも30秒ごとに位置を報告するため，画面に出る位置は約25秒前のものです．「自動」は，作り直された直後に取得します．「推定」は，バスを最後の速度で経路に沿って動かします．薄く表示されたバスは1分以上報告がありません．到着予測は，バス停かバスを開いている間，運行情報や乗換案内を表示している間，路線を監視している間だけ取得します．"
-          }
-        }
-      }
-    },
     "%lld buses now": {
       "extractionState": "manual",
       "localizations": {
@@ -4281,17 +4270,6 @@
         }
       }
     },
-    "Positions are %lld s old. The city's feed is rebuilt about every 30 seconds.": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "位置は%lld秒前のものです．市のデータは約30秒ごとに更新されます．"
-          }
-        }
-      }
-    },
     "Refresh now": {
       "extractionState": "manual",
       "localizations": {
@@ -4772,6 +4750,61 @@
           "stringUnit": {
             "state": "translated",
             "value": "早い%lld%% · 定時%lld%% · 遅れ%lld%%"
+          }
+        }
+      }
+    },
+    "Scheduled · no position yet": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "時刻表の時刻・位置情報はまだありません"
+          }
+        }
+      }
+    },
+    "Shows the details again": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "詳細をもう一度表示します"
+          }
+        }
+      }
+    },
+    "The city's feed is rebuilt about every 30 seconds and each bus reports about every 30 seconds (usually 25 to 35, sometimes up to a minute), so a position is about 25 seconds old when you see it. Automatic refresh asks right after each rebuild. Estimating moves each bus along its route at its last speed, and a bus drawn that way has a dashed ring; a veiled bus has not reported for over a minute. Predicted arrival times are fetched only while a stop or bus is open, the service board or planner is showing, or you are watching routes.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "市のフィードは約30秒ごとに作り直され，各バスも約30秒ごと（ふつうは25〜35秒，長いときは1分ほど）に位置を報告するため，画面に出る位置は約25秒前のものです．「自動」は，作り直された直後に取得します．「推定」は，バスを最後の速度で経路に沿って動かします．そのように描かれたバスの外枠は点線です．薄く表示されたバスは1分以上報告がありません．到着予測は，バス停かバスを開いている間，運行情報や乗換案内を表示している間，路線を監視している間だけ取得します．"
+          }
+        }
+      }
+    },
+    "Positions are %lld s old. Each bus reports about every 30 seconds (usually 25 to 35, sometimes up to a minute), and the city's feed is rebuilt about as often.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "位置は%lld秒前のものです．各バスは約30秒ごと（ふつうは25〜35秒，長いときは1分ほど）に報告し，市のフィードもそれくらいの間隔で作り直されます．"
+          }
+        }
+      }
+    },
+    "A dashed ring: the bus is drawn where it probably is now, moved ahead of its last report.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "点線の外枠：最後の報告より先に進めて，いまいそうな位置に描いているバスです．"
           }
         }
       }

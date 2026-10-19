@@ -96,7 +96,7 @@ struct SettingsView: View {
         } header: {
           Text("Live buses")
         } footer: {
-          Text("The city's feed is rebuilt every 30 seconds and each bus reports every 30 seconds, so a position is about 25 seconds old when you see it. Automatic refresh asks right after each rebuild. Estimating moves each bus along its route at its last speed; a veiled bus has not reported for over a minute. Predicted arrival times are fetched only while a stop or bus is open, the service board or planner is showing, or you are watching routes.")
+          Text("The city's feed is rebuilt about every 30 seconds and each bus reports about every 30 seconds (usually 25 to 35, sometimes up to a minute), so a position is about 25 seconds old when you see it. Automatic refresh asks right after each rebuild. Estimating moves each bus along its route at its last speed, and a bus drawn that way has a dashed ring; a veiled bus has not reported for over a minute. Predicted arrival times are fetched only while a stop or bus is open, the service board or planner is showing, or you are watching routes.")
         }
 
         Section {

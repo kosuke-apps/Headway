@@ -182,7 +182,7 @@ struct ArrivalRow: View {
             Text(arrival.headsign.prettyHeadsign).font(.body).lineLimit(1).layoutPriority(1)
             if let way = direction { Text(way).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
           }
-          LiveStatus(arrival: arrival, showDelay: model.settings.values.showDelayDetails, scheduled: nil)
+          LiveStatus(arrival: arrival, showDelay: model.settings.values.showDelayDetails, scheduled: nil, untracked: arrival.vehicle == nil)
         }
         Spacer(minLength: 8)
         if full {
@@ -202,6 +202,10 @@ struct ArrivalRow: View {
             Text(text.clock(arrival.expected)).font(.caption).foregroundStyle(.secondary).monospacedDigit()
           }
         }
+        }
+        // A bus that reports a position opens on the map; a trip without one has nothing to open.
+        if arrival.vehicle != nil {
+          Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
         }
       }
       .padding(.horizontal, 16).padding(.vertical, 10)

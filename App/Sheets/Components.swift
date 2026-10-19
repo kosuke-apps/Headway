@@ -36,6 +36,8 @@ struct LiveStatus: View {
   let arrival: Arrival
   let showDelay: Bool
   var scheduled: String? = nil
+  /// True when no bus is reporting a position for the trip yet, so there is nothing to open on the map.
+  var untracked = false
 
   var body: some View {
     HStack(spacing: 4) {
@@ -49,7 +51,7 @@ struct LiveStatus: View {
         }
       } else {
         Image(systemName: "clock").foregroundStyle(.secondary)
-        Text("Scheduled").foregroundStyle(.secondary)
+        Text(untracked ? "Scheduled · no position yet" : "Scheduled").foregroundStyle(.secondary).lineLimit(1)
       }
     }
     .font(.caption)

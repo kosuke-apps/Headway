@@ -147,3 +147,53 @@ import UIKit
     #expect(MapLayers.thickness(crowd: 40) == 0.5)
   }
 }
+
+@Suite struct BusFocusTests {
+  private let patterns = [
+    RoutePattern(route: "D", direction: 0, headsign: "1-JUNCTION", trips: 8, stops: ["s1", "s2"]),
+    RoutePattern(route: "D", direction: 0, headsign: "2-EPIC CAMPUS", trips: 5, stops: ["s1", "s3"]),
+  ]
+
+  @Test func aBusShowsTheLineToItsOwnDestination() {
+    let focus = AppModel.tripFocus(route: "D", direction: 0, headsign: "2-EPIC CAMPUS", patterns: patterns)
+    #expect(focus.routes == ["D"])
+    #expect(focus.direction == 0)
+    #expect(focus.headsign == "2-EPIC CAMPUS")
+    #expect(focus.headsignStops == ["s1", "s3"])
+    #expect(focus.fromBus)
+  }
+
+  @Test func aRouteWithOneDestinationInTheDirectionIsNotNarrowed() {
+    let focus = AppModel.tripFocus(route: "B", direction: 1, headsign: "B-NORTHPORT", patterns: [Array(patterns.prefix(1))[0]])
+    #expect(focus.headsign == nil)
+    #expect(focus.direction == 1)
+  }
+
+  @Test func aBusWithAnUnknownDestinationShowsTheWholeDirection() {
+    let focus = AppModel.tripFocus(route: "D", direction: 0, headsign: "9-SOMEWHERE", patterns: patterns)
+    #expect(focus.headsign == nil)
+    #expect(focus.direction == 0)
+  }
+
+  @Test func aFocusTheRiderChoseKeepsABusItShows() {
+    var chosen = MapFocus.route("D", direction: 0)
+    #expect(AppModel.focus(chosen, shows: "7", route: "D", direction: 0, headsign: "1-JUNCTION"))
+    chosen.headsign = "2-EPIC CAMPUS"
+    #expect(!AppModel.focus(chosen, shows: "7", route: "D", direction: 0, headsign: "1-JUNCTION"))
+    #expect(!AppModel.focus(chosen, shows: "7", route: "A", direction: 0, headsign: "2-EPIC CAMPUS"))
+    #expect(!AppModel.focus(MapFocus(), shows: "7", route: "D", direction: 0, headsign: nil))
+  }
+
+  @Test func theLineAnotherBusPutOnTheMapIsNotKept() {
+    // Opening a second bus (through a stop's board) must show that bus, even on the same route.
+    let first = AppModel.tripFocus(route: "D", direction: 0, headsign: "1-JUNCTION", patterns: patterns)
+    #expect(!AppModel.focus(first, shows: "8", route: "D", direction: 0, headsign: "1-JUNCTION"))
+  }
+
+  @Test func lateBusesFocusOnlyShowsTheRingedBuses() {
+    var late = MapFocus(routes: ["D"])
+    late.highlightedBuses = ["7": .late]
+    #expect(AppModel.focus(late, shows: "7", route: "D", direction: 0, headsign: nil))
+    #expect(!AppModel.focus(late, shows: "8", route: "D", direction: 0, headsign: nil))
+  }
+}
