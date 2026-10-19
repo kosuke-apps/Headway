@@ -219,9 +219,12 @@ The author's general workspace rules (outside this repository) apply too; this f
   a search field through the control tool is slow; wait before the next tap.
 - The 24 h feed report is written by a launchd job (`data/launchd/dev.kosuke.headway.report.plist`) to
   `docs/feed-analysis-2026-10-03.md` at 2026-10-04 17:10 CDT.
-- Recordings run continuously (launchd job `dev.kosuke.headway.recorder`, `tools/record_feeds.py`, one folder per day in
-  `data/feeds/`, a snapshot saved only when it changed, about 15 MB a day). A nightly job (04:30) runs
-  `tools/build_punctuality.sh`, which turns recorded bus positions into observed arrival times (SQLite,
+- Recordings run continuously: the Cloudflare collector records, and the launchd job `dev.kosuke.headway.pull` (hourly,
+  `tools/pull_feeds.py`) writes them to one folder per day in `data/feeds/` (about 15 MB a day); the collector keeps only
+  6 days. The jobs must be loaded from `~/Library/LaunchAgents` (copies of `data/launchd/*.plist`): a job loaded straight
+  from `data/launchd/` is forgotten at the next restart, which lost four days in October 2026. Check after any restart:
+  `launchctl print gui/$(id -u)/dev.kosuke.headway.pull` and `python3 tools/pull_feeds.py --status`. A nightly job (04:30)
+  runs `tools/build_punctuality.sh`, which turns recorded bus positions into observed arrival times (SQLite,
   `data/punctuality/observations.sqlite`) and exports `data/punctuality/punctuality.json`, which the app bundles.
   `feedanalysis freshness|accuracy|punctuality` explain the feed's real latency, prediction accuracy and punctuality;
   `early` (what the predictions said about arrivals that were early or late) and `notstarted` (predictions for trips whose
