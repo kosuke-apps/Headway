@@ -31,8 +31,9 @@ The author's general workspace rules (outside this repository) apply too; this f
     settings), fetches service alerts once a minute, fetches trip predictions (160 KB each, most of the app's data) while a
     stop or bus sheet, the service board or the planner is open, a route is in focus or routes are watched, at most every
     minute for a stop, bus, planner or watched route and every two minutes otherwise, doubled on mobile data and
-    quadrupled in Low Data Mode while "Save mobile data" is on (`AppModel.predictionInterval`, `NetworkStatus`; the
-    timetable download also waits for Wi-Fi then, unless the copy is past its end date), recomputes the stop board, and holds
+    quadrupled in Low Data Mode while "Save mobile data" is on and the refresh is Automatic (`AppModel.predictionInterval`,
+    `NetworkStatus`; the timetable download waits for Wi-Fi while `timetableOnlyOnWiFi` is on, unless the copy is past its
+    end date), recomputes the stop board, and holds
     selection (`ActiveSheet`), the map `focus` (routes, direction, ringed stops and buses) and camera requests.
   - Map overlay: after every parse the route lines, stops and `RouteNetwork` (stops per route and direction, variants
     with their destinations) are saved as a small plist (`App/Map/MapOverlay.swift`, `OverlayStore`). The next launch draws
