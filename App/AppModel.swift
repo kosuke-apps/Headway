@@ -169,6 +169,7 @@ final class AppModel {
   @ObservationIgnored private var feedTimestamp: Date?
   @ObservationIgnored private var feedPeriod: TimeInterval = 30
   @ObservationIgnored private var publishLag = PublishLag()
+  @ObservationIgnored private var slowDataBusy = false
   @ObservationIgnored private var periods: [TimeInterval] = []
 
   static let scheduleURL = URL(string: "https://transitdata.cityofmadison.com/GTFS/mmt_gtfs.zip")!
@@ -300,9 +301,21 @@ final class AppModel {
   }
 
   func showLaterDepartures() {
-    boardWindow = min(boardWindow + 3 * 3600, 24 * 3600)
+    boardWindow = min(boardWindow + 3 * 3600, Self.longestBoardWindow)
     refreshArrivals()
   }
+
+  /// True when the board reaches further than its first view: earlier departures are shown, or later ones were asked for.
+  var boardIsExtended: Bool { boardEarlier > 0 || boardWindow > Self.defaultBoardWindow }
+
+  /// True while asking for later departures can still show more (the board reaches a day ahead at most).
+  var canShowLaterDepartures: Bool { boardWindow < Self.longestBoardWindow }
+
+  private static let longestBoardWindow: TimeInterval = 24 * 3600
+
+  /// How many coming departures the board lists: 40 for each three hours it reaches, so that every tap on "Later
+  /// departures" adds rows (with a fixed 40, the second tap showed nothing new at a busy stop).
+  private var boardLimit: Int { 40 * Int((boardWindow / (3 * 3600)).rounded(.up)) }
 
   /// Back to the departures around now, and fresh data.
   func resetBoard() {
@@ -1008,8 +1021,10 @@ final class AppModel {
         let isNew = vehicles.isEmpty || snapshot.feedTimestamp == nil || snapshot.feedTimestamp != feedTimestamp
         if isNew {
           if let old = feedTimestamp, let new = snapshot.feedTimestamp, new > old { notePeriod(new.timeIntervalSince(old)) }
-          if scheduled, let stamp = snapshot.feedTimestamp, let serverNow = snapshot.serverDate {
-            publishLag.note(age: serverNow.timeIntervalSince(stamp))
+          if let stamp = snapshot.feedTimestamp, let serverNow = snapshot.serverDate {
+            let age = serverNow.timeIntervalSince(stamp)
+            pollLog.info("new feed: \(Int(age.rounded())) s old, \(unchanged + 1) requests, lag estimate \(self.publishLag.estimate, format: .fixed(precision: 1)) s, scheduled \(scheduled)")
+            if scheduled { publishLag.note(age: age) }
           }
           scheduled = false
           feedTimestamp = snapshot.feedTimestamp
@@ -1040,10 +1055,8 @@ final class AppModel {
         } else {
           delay = unchanged < 8 ? 2 : 10  // the feed is late or stopped: do not hammer the server
         }
-        if isNew {
-          await refreshSlowData()
-          await evaluateWatch()
-        }
+        // The large downloads run beside the poll, never in front of it: on a slow connection the positions must not wait.
+        if isNew { startSlowData() }
       } catch is CancellationError {
         return
       } catch {
@@ -1053,6 +1066,21 @@ final class AppModel {
       refreshArrivals()
       refreshStatus()
       try? await Task.sleep(for: .seconds(delay))
+    }
+  }
+
+  /// Fetches the alerts and trip predictions, and checks the watched routes, without holding up the vehicle poll. One at
+  /// a time: while the last one is still downloading (a slow connection), a new beat starts nothing.
+  private func startSlowData() {
+    guard !slowDataBusy else { return }
+    slowDataBusy = true
+    Task { [weak self] in
+      guard let self else { return }
+      await refreshSlowData()
+      await evaluateWatch()
+      slowDataBusy = false
+      refreshArrivals()
+      refreshStatus()
     }
   }
 
@@ -1201,7 +1229,7 @@ final class AppModel {
     func coming(_ list: [Arrival]) -> Bool { list.contains { !$0.hasGone(at: now) && !$0.isUnconfirmed(at: now) } }
     var found = Arrivals.upcoming(
       schedule: schedule, stopID: stopID, now: now, window: boardWindow, predictions: predictions, vehicles: vehicles,
-      earlier: boardEarlier)
+      limit: boardLimit, earlier: boardEarlier)
     arrivalsAreLater = false
     if !coming(found) {
       // Nothing in the window (late at night): show when service resumes.

@@ -81,6 +81,23 @@ struct StopSheet: View {
   // MARK: Board
 
   private var board: some View {
+    ScrollViewReader { proxy in
+      boardList(proxy)
+    }
+  }
+
+  private static let boardTop = "board-top"
+
+  /// Back to the departures around now: the list goes back to its first row as well as shrinking.
+  private func backToNow(_ proxy: ScrollViewProxy) {
+    model.resetBoard()
+    Task { @MainActor in
+      await Task.yield()
+      withAnimation { proxy.scrollTo(Self.boardTop, anchor: .top) }
+    }
+  }
+
+  private func boardList(_ proxy: ScrollViewProxy) -> some View {
     List {
       let alerts = model.alerts(forStop: stopID)
       if !alerts.isEmpty {
@@ -89,7 +106,7 @@ struct StopSheet: View {
         }
       }
       let arrivals = model.boardArrivals
-      earlierButtons
+      earlierButtons(proxy).id(Self.boardTop)
       if arrivals.isEmpty {
         Text(LocalizedStringKey(model.schedule == nil ? "Loading timetable…" : "No buses are scheduled here soon."))
           .foregroundStyle(.secondary)
@@ -121,10 +138,13 @@ struct StopSheet: View {
         }
         .listRowInsets(EdgeInsets())
       }
-      Button { model.showLaterDepartures() } label: {
-        Label("Later departures", systemImage: "chevron.down").font(.subheadline).frame(maxWidth: .infinity)
+      HStack(spacing: 16) {
+        Button { model.showLaterDepartures() } label: { Label("Later departures", systemImage: "chevron.down").font(.subheadline) }
+          .buttonStyle(.borderless)
+          .disabled(!model.canShowLaterDepartures)
+        if model.boardIsExtended { backToNowButton(proxy) }
       }
-      .buttonStyle(.borderless)
+      .frame(maxWidth: .infinity)
       reliabilitySection
       if model.hiddenArrivalCount > 0 || model.showHiddenRoutes, !model.hiddenRoutes.isEmpty {
         Toggle(isOn: Bindable(model).showHiddenRoutes) {
@@ -139,7 +159,7 @@ struct StopSheet: View {
     .listStyle(.plain)
     // Pulling the board down brings it back to the departures around now, with fresh data.
     .refreshable {
-      model.resetBoard()
+      backToNow(proxy)
       model.refreshNow()
       try? await Task.sleep(for: .seconds(1))
     }
@@ -148,18 +168,21 @@ struct StopSheet: View {
 
 extension StopSheet {
   /// Earlier departures, above the board: the first tap shows the last hour, each further tap an hour more.
-  @ViewBuilder fileprivate var earlierButtons: some View {
+  @ViewBuilder fileprivate func earlierButtons(_ proxy: ScrollViewProxy) -> some View {
     HStack(spacing: 16) {
       Button { model.showEarlierDepartures() } label: {
         Label(model.boardEarlier == 0 ? "Earlier departures" : "Even earlier", systemImage: "chevron.up").font(.subheadline)
       }
       .buttonStyle(.borderless)
-      if model.boardEarlier > 0 {
-        Button { model.resetBoard() } label: { Label("Back to now", systemImage: "clock").font(.subheadline) }
-          .buttonStyle(.borderless)
-      }
+      if model.boardIsExtended { backToNowButton(proxy) }
     }
     .frame(maxWidth: .infinity)
+  }
+
+  /// Goes back to the departures around now, and to the top of the list.
+  fileprivate func backToNowButton(_ proxy: ScrollViewProxy) -> some View {
+    Button { backToNow(proxy) } label: { Label("Back to now", systemImage: "clock").font(.subheadline) }
+      .buttonStyle(.borderless)
   }
 
   /// A line across the board at the current time.
