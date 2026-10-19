@@ -68,11 +68,17 @@ python3 ../tools/pull_feeds.py              # pulls what is there
 `data/` is outside Git, so the token never leaves the Mac. The Worker address is not secret but is not useful without the
 token either.
 
-To pull every hour without thinking about it, load the launchd job (`data/launchd/dev.kosuke.headway.pull.plist`):
+To pull every hour without thinking about it, install the launchd job (`data/launchd/dev.kosuke.headway.pull.plist`).
+Copy it into `~/Library/LaunchAgents` first: a job loaded straight from `data/launchd/` is forgotten when the Mac restarts,
+and the collector keeps only 6 days, so every day without a pull is lost for good.
 
 ```bash
-launchctl bootstrap gui/$(id -u) data/launchd/dev.kosuke.headway.pull.plist
+cp data/launchd/dev.kosuke.headway.pull.plist ~/Library/LaunchAgents/
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/dev.kosuke.headway.pull.plist
+launchctl print gui/$(id -u)/dev.kosuke.headway.pull | head -3     # check that it is loaded
 ```
+
+After a restart, `python3 tools/pull_feeds.py --status` shows when the collector last ran and how much is waiting.
 
 When the collector is working, stop the Mac recorder so that the two do not record the same thing:
 
@@ -101,4 +107,4 @@ npx wrangler d1 delete headway-collector    # its database
 - Cron triggers on the free plan can start a few seconds late, so the three looks are not exactly 20 s apart.
 - A snapshot is the feed as the city sent it; when the city's server is down, nothing is stored and the error is kept for
   `tools/pull_feeds.py --status`.
-- If the Mac does not pull for more than two weeks, the oldest snapshots are deleted to keep the database small.
+- If the Mac does not pull for more than 6 days, the oldest snapshots are deleted to keep the database small.

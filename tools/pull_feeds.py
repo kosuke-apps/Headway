@@ -18,8 +18,10 @@ import gzip
 import json
 import os
 import sys
+import time
 import urllib.error
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -28,6 +30,8 @@ import record_feeds  # noqa: E402  (its timetable download is reused)
 
 CONFIG = Path(__file__).resolve().parent.parent / "data" / "collector" / "config.json"
 BATCH = 200
+# Snapshots are fetched this many at a time (one request each): a catch-up after the Mac was away would otherwise take hours.
+WORKERS = 8
 
 
 def load_config() -> tuple[str, str]:
@@ -49,8 +53,19 @@ class Collector:
         request = urllib.request.Request(
             self.url + path, method=method, headers={"Authorization": f"Bearer {self.token}", "User-Agent": "headway-pull/0.1"}
         )
-        with urllib.request.urlopen(request, timeout=60) as response:
-            return response.read(), dict(response.headers)
+        # A dropped connection or a failed name lookup is usually over in seconds: try again before giving up, so that a long
+        # catch-up does not stop at the first hiccup.
+        for attempt in range(5):
+            try:
+                with urllib.request.urlopen(request, timeout=60) as response:
+                    return response.read(), dict(response.headers)
+            except urllib.error.HTTPError:
+                raise
+            except (urllib.error.URLError, TimeoutError, ConnectionError):
+                if attempt == 4:
+                    raise
+                time.sleep(2 * (attempt + 1))
+        raise RuntimeError("unreachable")
 
     def json(self, path: str, method: str = "GET") -> dict:
         return json.loads(self.request(path, method)[0])
@@ -95,19 +110,21 @@ def write_snapshot(root: Path, feed: str, ts_ms: int, encoding: str, body: bytes
 def pull(collector: Collector, root: Path) -> tuple[int, int]:
     saved = skipped = 0
     cursor = 0
-    while True:
-        items = collector.json(f"/list?after={cursor}&limit={BATCH}")["items"]
-        if not items:
-            break
-        for item in items:
-            body, _ = collector.request(f"/snapshot/{item['id']}")
-            if write_snapshot(root, item["feed"], item["ts"], item["encoding"], body):
-                saved += 1
-            else:
-                skipped += 1
-        cursor = items[-1]["id"]
-        # Only after the files are on disk: the collector forgets everything up to here.
-        collector.json(f"/ack?upto={cursor}", method="POST")
+    with ThreadPoolExecutor(WORKERS) as pool:
+        while True:
+            items = collector.json(f"/list?after={cursor}&limit={BATCH}")["items"]
+            if not items:
+                break
+            # Fetched in parallel, written in order.
+            bodies = pool.map(lambda item: collector.request(f"/snapshot/{item['id']}")[0], items)
+            for item, body in zip(items, bodies):
+                if write_snapshot(root, item["feed"], item["ts"], item["encoding"], body):
+                    saved += 1
+                else:
+                    skipped += 1
+            cursor = items[-1]["id"]
+            # Only after the files are on disk: the collector forgets everything up to here.
+            collector.json(f"/ack?upto={cursor}", method="POST")
     return saved, skipped
 
 
