@@ -386,6 +386,6 @@ private struct FavoriteStopRow: View {
       Arrivals.upcoming(
         schedule: schedule, stopID: stop.id, now: Date(), predictions: model.predictions, vehicles: model.vehicles, limit: 12
       )
-      .filter { !model.hiddenRoutes.contains($0.routeID) }.prefix(3))
+      .filter { !model.hiddenRoutes.contains($0.routeID) && !$0.isUnconfirmed(at: Date()) }.prefix(3))
   }
 }

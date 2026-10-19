@@ -32,14 +32,28 @@ public struct Arrival: Sendable, Identifiable, Hashable {
   public func minutes(from now: Date) -> Int {
     Int((expected.timeIntervalSince(now) / 60).rounded(.down))
   }
+
+  /// True when the timetable time has passed and no bus has been seen on the trip: it may be running late and not on its
+  /// route yet (a bus has no position until it starts the trip), or it may not run at all.
+  public func isUnconfirmed(at now: Date) -> Bool {
+    status == .scheduled && vehicle == nil && scheduled < now.addingTimeInterval(-Arrivals.dueGrace)
+  }
 }
 
 public enum Arrivals {
+  /// How long a bus that has gone stays listed as "Due".
+  public static let dueGrace: TimeInterval = 20
+  /// How long a trip that no bus has been seen on stays listed after its timetable time. Measured: 7% of trips start more
+  /// than 5 minutes late and 1% more than 10, and until the bus starts the trip the feed has no position for it.
+  public static let unconfirmedGrace: TimeInterval = 10 * 60
+
   /// Upcoming departures from `stopID`, soonest first.
   ///
   /// The timetable is searched from 30 minutes before `now`, so a late bus whose timetable time has passed is still
   /// listed. A departure is `live` only when a bus reports a position for that trip and the trip updates predict a
-  /// time at this stop; predictions for trips without a bus are just the timetable again.
+  /// time at this stop; predictions for trips without a bus are just the timetable again. A trip with no bus at all stays
+  /// for `unconfirmedGrace` after its time (see `Arrival.isUnconfirmed`), unless the feed says it is cancelled, instead
+  /// of vanishing the moment its time passes.
   public static func upcoming(
     schedule: Schedule,
     stopID: String,
@@ -67,14 +81,17 @@ public enum Arrivals {
         }
       }
       if skipped { continue }
+      let cancelled = predictionByTrip[departure.tripID].map { ["CANCELED", "CANCELLED"].contains($0.scheduleRelationship) } ?? false
       let vehicle = vehicleByTrip[departure.tripID]
       let live = vehicle != nil && predicted != nil
       let arrival = Arrival(
         tripID: departure.tripID, routeID: departure.routeID, headsign: departure.headsign,
         serviceDate: departure.serviceDate, sequence: departure.sequence, scheduled: departure.time,
         predicted: predicted, status: live ? .live : .scheduled, vehicle: vehicle)
-      // Drop buses that have already gone (a 20 second grace keeps "Due" visible).
-      if arrival.expected < now.addingTimeInterval(-20) { continue }
+      // Drop buses that have already gone (a short grace keeps "Due" visible), but keep a trip nobody has seen a bus on for a
+      // while: its bus may simply not have started it yet.
+      let unseen = arrival.status == .scheduled && vehicle == nil && !cancelled
+      if arrival.expected < now.addingTimeInterval(-(unseen ? unconfirmedGrace : dueGrace)) { continue }
       arrivals.append(arrival)
     }
     arrivals.sort { $0.expected < $1.expected }

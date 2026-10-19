@@ -22,10 +22,12 @@ import Testing
       stopID: "")
   }
 
-  private func prediction(trip: String, stop: String, sequence: Int, at time: Date, skipped: Bool = false) -> TripPrediction {
+  private func prediction(
+    trip: String, stop: String, sequence: Int, at time: Date, skipped: Bool = false, relationship: String = "SCHEDULED"
+  ) -> TripPrediction {
     TripPrediction(
       entityID: "1", tripID: trip, routeID: "A", directionID: nil, startDate: "", startTime: "",
-      scheduleRelationship: "SCHEDULED", vehicleID: "v1", timestamp: nil, delay: nil,
+      scheduleRelationship: relationship, vehicleID: "v1", timestamp: nil, delay: nil,
       stops: [
         StopPrediction(
           stopID: stop, sequence: sequence, arrival: time, arrivalDelay: nil, departure: nil, departureDelay: nil,
@@ -78,8 +80,39 @@ import Testing
   }
 
   @Test func busThatHasGoneIsDropped() {
+    // A bus that is being tracked, and whose time at the stop has passed, has gone.
     let result = Arrivals.upcoming(
-      schedule: schedule, stopID: "s1", now: monday(8, 10), window: 20 * 3600, predictions: [], vehicles: [])
+      schedule: schedule, stopID: "s1", now: monday(8, 10), window: 20 * 3600,
+      predictions: [prediction(trip: "t1", stop: "s1", sequence: 1, at: monday(8, 1))], vehicles: [vehicle(trip: "t1")])
+    #expect(result.map(\.tripID) == ["t2"])
+  }
+
+  @Test func aTripNobodyHasSeenABusOnStaysForTenMinutes() {
+    // 08:00 has passed and no bus reports the trip: it may just be late and not on its route yet.
+    let result = Arrivals.upcoming(
+      schedule: schedule, stopID: "s1", now: monday(8, 5), window: 20 * 3600, predictions: [], vehicles: [])
+    #expect(result.map(\.tripID) == ["t1", "t2"])
+    #expect(result[0].isUnconfirmed(at: monday(8, 5)))
+    #expect(!result[1].isUnconfirmed(at: monday(8, 5)))
+    // Then it goes, so that a trip that never runs does not linger.
+    let later = Arrivals.upcoming(
+      schedule: schedule, stopID: "s1", now: monday(8, 11), window: 20 * 3600, predictions: [], vehicles: [])
+    #expect(later.map(\.tripID) == ["t2"])
+  }
+
+  @Test func aTripIsNotUnconfirmedBeforeItsTimeOrWhileABusReportsIt() {
+    let early = Arrivals.upcoming(schedule: schedule, stopID: "s1", now: monday(7, 50), predictions: [], vehicles: [])
+    #expect(!early[0].isUnconfirmed(at: monday(7, 50)))
+    let tracked = Arrivals.upcoming(
+      schedule: schedule, stopID: "s1", now: monday(8, 3), predictions: [], vehicles: [vehicle(trip: "t1")])
+    // A bus is on the trip but the feed has no time for this stop: it is known to exist, and goes after the short grace.
+    #expect(tracked.isEmpty)
+  }
+
+  @Test func aCancelledTripIsNotKeptAsUnconfirmed() {
+    let result = Arrivals.upcoming(
+      schedule: schedule, stopID: "s1", now: monday(8, 5), window: 20 * 3600,
+      predictions: [prediction(trip: "t1", stop: "s1", sequence: 1, at: monday(8, 0), relationship: "CANCELED")], vehicles: [])
     #expect(result.map(\.tripID) == ["t2"])
   }
 

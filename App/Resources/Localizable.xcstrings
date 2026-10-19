@@ -4808,6 +4808,39 @@
           }
         }
       }
+    },
+    "No bus seen yet": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "バスはまだ確認できていません"
+          }
+        }
+      }
+    },
+    "Due now": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "予定時刻です"
+          }
+        }
+      }
+    },
+    "Due %lld min ago": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "予定は%lld分前"
+          }
+        }
+      }
     }
   }
 }
