@@ -85,14 +85,22 @@ The author's general workspace rules (outside this repository) apply too; this f
   - The stop board (`StopSheet`) reaches back and forward on request: "Earlier departures" (an hour at a time, dimmed rows
     marked "Earlier", with a "Now" line between them and what is coming), "Later departures" (three hours at a time) and
     pull-down to go back to now and refresh (`AppModel.boardEarlier`, `boardWindow`, `resetBoard`; opening another stop
-    resets them). Earlier rows carry only what the timetable and the current feeds know.
+    resets them; "Back to now" also scrolls to the top). The row limit grows with the window (40 per three hours,
+    `boardLimit`): with a fixed 40 the second tap on "Later departures" added nothing at a busy stop. Earlier rows carry only
+    what the timetable and the current feeds know.
+  - Live bus positions are never throttled: not by "Save mobile data", not by the connection. Only the rider's own "Refresh"
+    setting (automatic, 30 s, 1 min) changes the vehicle poll, and the larger downloads (`startSlowData`: alerts, trip
+    predictions, watched routes) run beside it, one at a time, so that a slow connection cannot delay the positions.
   - Data use (measured on 2026-10-19 with `nettop` on the simulator, Wi-Fi): a vehicle feed is 7 KB, the alerts 1 KB, the
     trip updates 156 KB (none of them compressed by the city's server). Positions alone cost about 2 MB an hour; with a
     stop open the trip updates, then fetched with every 30 s beat, made it about 22 MB an hour. The vehicle poll asks for
     the next feed `PublishLag.estimate - 1` seconds after its stamp (learned from the feeds seen), not 1.5 s, so that it
     does not download the unchanged feed again every two seconds until the server has published it. After both changes,
     the same measurement with a stop open: trip updates every 60 to 80 s, positions and alerts 16 KB a minute (it was 34),
-    7 MB an hour in all.
+    7 MB an hour in all. Launch itself downloads nothing but the first vehicle feed (17 KB with the TLS handshake): the map,
+    the route lines and the stops are in the app, and the timetable is only asked for when the copy is over a day old.
+    `pollLog` (category `poll`) says how old each new vehicle feed was when it arrived (0 to 2 s on a scheduled request) and
+    how many requests it took; the city's feed interval was 30 s at night and 35 to 45 s on a weekday morning.
   - Punctuality detail: `PunctualityDetail` (opened from the bars in `StopSheet` through `PunctualityTarget`) draws
     `PunctualityTable.hourly` / `totals` with Swift Charts. Chart pitfalls met here: bars with both ends on both axes must be
     `RectangleMark` (`BarMark` has no such form, and the compiler then says only "failed to produce diagnostic"); a numeric
