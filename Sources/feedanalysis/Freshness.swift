@@ -12,6 +12,7 @@ struct Freshness {
     var positionAge: [Double] = []       // feed header timestamp - vehicle position timestamp
     var lastStamp: [String: Date] = [:]  // vehicle -> last distinct position timestamp
     var reportIntervals: [Double] = []
+    var intervalsByBus: [String: [Double]] = [:]
     var stale = 0, moving = 0
     var previousPosition: [String: (Double, Double)] = [:]
     var fetches = 0
@@ -25,7 +26,10 @@ struct Freshness {
       for vehicle in snapshot.vehicles {
         guard let stamp = vehicle.timestamp else { continue }
         positionAge.append(header.timeIntervalSince(stamp))
-        if let last = lastStamp[vehicle.id], stamp > last { reportIntervals.append(stamp.timeIntervalSince(last)) }
+        if let last = lastStamp[vehicle.id], stamp > last {
+          reportIntervals.append(stamp.timeIntervalSince(last))
+          intervalsByBus[vehicle.id, default: []].append(stamp.timeIntervalSince(last))
+        }
         if lastStamp[vehicle.id] == nil || stamp > lastStamp[vehicle.id]! { lastStamp[vehicle.id] = stamp }
         // A bus that is moving but whose coordinates did not change since the last fetch is a stale position.
         if let speed = vehicle.speed, speed > 2 {
@@ -49,6 +53,16 @@ struct Freshness {
     out += "| time between two new reports from the same bus | \(pct(reportIntervals, 0.5)) | \(pct(reportIntervals, 0.9)) | \(pct(reportIntervals, 1)) |\n\n"
     let total = zip(ageAtFetch, positionAge.isEmpty ? [] : positionAge).map { $0 + $1 }
     _ = total
+    // Is the interval the same for every bus, and is it steady? Shares of intervals by length, and the spread of the
+    // typical (median) interval from bus to bus.
+    let bands: [(String, Range<Double>)] = [("under 25 s", 0..<25), ("25-35 s", 25..<35), ("35-50 s", 35..<50), ("50-90 s", 50..<90), ("90 s or more", 90..<1e9)]
+    out += "| time between two reports of one bus | share of all intervals |\n|---|---:|\n"
+    for (name, range) in bands {
+      let share = Double(reportIntervals.filter { range.contains($0) }.count) / Double(max(1, reportIntervals.count))
+      out += "| \(name) | \(String(format: "%.1f", share * 100))% |\n"
+    }
+    let busMedians = intervalsByBus.filter { $0.value.count >= 20 }.map { $0.value.sorted()[$0.value.count / 2] }
+    out += "\nMedian interval of each bus (\(busMedians.count) buses with at least 20 reports): lowest \(pct(busMedians, 0)) s, 10th percentile \(pct(busMedians, 0.1)) s, median \(pct(busMedians, 0.5)) s, 90th percentile \(pct(busMedians, 0.9)) s, highest \(pct(busMedians, 1)) s. Buses whose median is outside 28-33 s: \(busMedians.filter { $0 < 28 || $0 > 33 }.count).\n\n"
     out += "Moving buses (speed over 2 m/s) whose coordinates were identical to the previous fetch: \(stale) of \(moving).\n"
     return out
   }

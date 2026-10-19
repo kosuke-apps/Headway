@@ -51,6 +51,7 @@ final class MapLayers {
   private var journeyArrows: MLNSymbolStyleLayer?
   static let journeyLegSlots = 10
   private var busRings: [String: MLNCircleStyleLayer] = [:]
+  private var busEstimates: [String: MLNSymbolStyleLayer] = [:]
   private var busDots: [String: MLNCircleStyleLayer] = [:]
   private var busLabels: [String: MLNSymbolStyleLayer] = [:]
   private var busTags: [String: MLNSymbolStyleLayer] = [:]
@@ -93,6 +94,7 @@ final class MapLayers {
       style.addSource(source)
     }
     style.setImage(Self.arrowImage(), forName: "route-arrow")
+    for (name, color) in Self.ringColors { style.setImage(Self.dashedRingImage(color: color), forName: name) }
 
     for id in routeIDs {
       let casing = MLNLineStyleLayer(identifier: "route-casing-\(id)", source: routeSource)
@@ -195,8 +197,13 @@ final class MapLayers {
     idleTag.predicate = NSPredicate(format: "idle == %@ AND tag != ''", NSNumber(value: true))
     style.addLayer(idleTag)
     for id in routeIDs {
+      // A bus drawn where it probably is, not where it was seen, has a dashed ring instead of a solid one.
+      let estimate = MLNSymbolStyleLayer(identifier: "bus-estimate-\(id)", source: busSource)
+      estimate.predicate = NSPredicate(format: "route == %@ AND est == %@", id, NSNumber(value: true))
+      busEstimates[id] = estimate
+      style.addLayer(estimate)
       let ring = MLNCircleStyleLayer(identifier: "bus-ring-\(id)", source: busSource)
-      ring.predicate = NSPredicate(format: "route == %@", id)
+      ring.predicate = NSPredicate(format: "route == %@ AND est == %@", id, NSNumber(value: false))
       busRings[id] = ring
       style.addLayer(ring)
       let dot = MLNCircleStyleLayer(identifier: Self.busDotID(id), source: busSource)
@@ -234,6 +241,46 @@ final class MapLayers {
       path.stroke()
       UIColor.white.setFill()
       path.fill()
+    }
+  }
+
+  /// The rings of the bus markers by the way the trip runs (see `ringImage`).
+  private static let ringColors: [(name: String, color: UIColor)] = [
+    ("bus-ring-1", .white), ("bus-ring-0", UIColor(white: 0.05, alpha: 1)), ("bus-ring-x", .gray),
+  ]
+
+  /// The feature attribute that picks the ring image of a bus: white for direction 1, black for 0, gray when unknown.
+  static func ringImage(direction: Int?) -> String {
+    switch direction {
+    case 1: "bus-ring-1"
+    case 0: "bus-ring-0"
+    default: "bus-ring-x"
+    }
+  }
+
+  /// A ring made of twelve dashes, drawn 60 points across; the map scales it to the marker. A light ring gets a thin dark
+  /// edge so that it still shows on a pale map.
+  private static func dashedRingImage(color: UIColor) -> UIImage {
+    let side: CGFloat = 64, outer: CGFloat = 30, width: CGFloat = 5.5, slots: CGFloat = 12
+    let radius = outer - width / 2
+    return UIGraphicsImageRenderer(size: CGSize(width: side, height: side)).image { _ in
+      var luminance: CGFloat = 0
+      color.getWhite(&luminance, alpha: nil)
+      for slot in 0..<Int(slots) {
+        let start = CGFloat(slot) / slots * 2 * .pi
+        let path = UIBezierPath(
+          arcCenter: CGPoint(x: side / 2, y: side / 2), radius: radius, startAngle: start, endAngle: start + 2 * .pi / slots * 0.58,
+          clockwise: true)
+        path.lineCapStyle = .butt
+        if luminance > 0.8 {
+          path.lineWidth = width + 1.8
+          UIColor(white: 0.1, alpha: 0.4).setStroke()
+          path.stroke()
+        }
+        path.lineWidth = width
+        color.setStroke()
+        path.stroke()
+      }
     }
   }
 
@@ -358,6 +405,13 @@ final class MapLayers {
       label.isVisible = look.visible && prefs.showRouteNameOnBuses
       // The ring says which way the trip runs: white for direction 1 (mostly east- and northbound), black for direction 0.
       ring.circleColor = NSExpression(format: "TERNARY(dir == 1, %@, TERNARY(dir == 0, %@, %@))", UIColor.white, UIColor(white: 0.05, alpha: 1), UIColor.gray)
+      let estimate = busEstimates[id]!
+      estimate.isVisible = look.visible
+      estimate.iconImageName = NSExpression(forKeyPath: "ring")
+      estimate.iconScale = Self.ramp(Self.busZooms.mapValues { $0 * (radius + 2.5) / 30 })
+      estimate.iconOpacity = NSExpression(forConstantValue: look.opacity)
+      estimate.iconAllowsOverlap = NSExpression(forConstantValue: true)
+      estimate.iconIgnoresPlacement = NSExpression(forConstantValue: true)
       ring.circleRadius = Self.busSize(radius, extra: 2.5)
       ring.circleOpacity = NSExpression(forConstantValue: look.opacity)
       dot.circleColor = NSExpression(forConstantValue: look.busFill)
@@ -676,7 +730,7 @@ final class MapLayers {
         point.coordinate = bus.coordinate
         point.attributes = [
           "id": vehicle.id, "route": "", "idle": true, "label": mark.label, "tag": mark.tag, "off": false,
-          "stale": bus.age > Self.staleAfter, "hl": "", "dir": -1,
+          "stale": bus.age > Self.staleAfter, "hl": "", "dir": -1, "est": false, "ring": "",
         ]
         features.append(point)
         if vehicle.id == state.selectedVehicle { selected = point }
@@ -703,6 +757,8 @@ final class MapLayers {
         "hl": focus.highlightedBuses[vehicle.id]?.rawValue ?? "",
         "dir": state.vehicleDirections[vehicle.id] ?? -1,
         "tag": state.vehicleHeadings[vehicle.id] ?? "",
+        "est": bus.estimated,
+        "ring": Self.ringImage(direction: state.vehicleDirections[vehicle.id]),
       ]
       features.append(point)
       if vehicle.id == state.selectedVehicle { selected = point }

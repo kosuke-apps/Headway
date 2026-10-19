@@ -25,7 +25,12 @@ struct LiveSummary: View {
           tile(fleet.total - fleet.measured, "No prediction", .gray)
         }
         if let age {
-          Text("Positions are \(Int(age.rounded())) s old. The city's feed is rebuilt about every 30 seconds.")
+          Text("Positions are \(Int(age.rounded())) s old. Each bus reports about every 30 seconds (usually 25 to 35, sometimes up to a minute), and the city's feed is rebuilt about as often.")
+            .font(.footnote).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+        }
+        if model.settings.values.estimateBusPositions {
+          // The dashes are the only sign that a marker has been moved on from the last report.
+          Label("A dashed ring: the bus is drawn where it probably is now, moved ahead of its last report.", systemImage: "circle.dashed")
             .font(.footnote).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
         HStack {

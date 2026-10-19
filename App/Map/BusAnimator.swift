@@ -8,6 +8,9 @@ struct DrawnBus {
   let coordinate: CLLocationCoordinate2D
   /// Seconds since the bus made the report this position comes from.
   let age: TimeInterval
+  /// True when the marker has been moved on from where the bus reported (dead reckoning along its route): it shows where
+  /// the bus probably is, not where it was seen, and is drawn with a dashed ring.
+  let estimated: Bool
 }
 
 /// Moves bus markers smoothly and, when asked, estimates where each bus is *now*.
@@ -67,11 +70,13 @@ final class BusAnimator {
       let age = track.reportAge + sinceReceived
       let reported = CLLocationCoordinate2D(latitude: track.vehicle.latitude, longitude: track.vehicle.longitude)
       var target = reported
+      var estimated = false
       if let path = track.path {
         // The report was valid `reportAge` seconds before it arrived, so the bus has covered that distance already.
         let elapsed = min(Self.maxExtrapolation, age)
         let point = Geometry.point(on: path, at: track.speed * elapsed)
         target = CLLocationCoordinate2D(latitude: point.latitude, longitude: point.longitude)
+        estimated = track.speed > 0 && elapsed > 0
         if age < Self.maxExtrapolation { finished = false }
       }
       var drawn = target
@@ -83,7 +88,7 @@ final class BusAnimator {
           longitude: from.longitude + (target.longitude - from.longitude) * eased)
         finished = false
       }
-      return DrawnBus(vehicle: track.vehicle, coordinate: drawn, age: age)
+      return DrawnBus(vehicle: track.vehicle, coordinate: drawn, age: age, estimated: estimated)
     }
     return (list, finished)
   }

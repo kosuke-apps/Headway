@@ -77,7 +77,12 @@ final class AppModel {
 
   private(set) var phase: Phase = .loading
   private(set) var schedule: Schedule?
-  private(set) var vehicles: [VehicleSample] = []
+  private(set) var vehicles: [VehicleSample] = [] {
+    didSet {
+      // A bus that stopped reporting cannot wait in the dock.
+      if let id = dockedVehicleID, !vehicles.contains(where: { $0.id == id }) { closeDockedBus() }
+    }
+  }
   private(set) var predictions: [TripPrediction] = []
   private(set) var alerts: [ServiceAlert] = []
   /// How punctual routes and stops have been, and how far live predictions have been off (from recordings).
@@ -116,11 +121,15 @@ final class AppModel {
   var sheet: ActiveSheet? {
     didSet { if sheet != oldValue { selectionChanged() } }
   }
+  /// A stop or a bus the rider put away (swiped its sheet down, opened the menu): it waits in the dock at the bottom of
+  /// the map, still marked on it, and a tap brings its sheet back. A journey has its own place (`mapJourney`).
+  private(set) var dockedStopID: String?
+  private(set) var dockedVehicleID: String?
   var mode: AppMode = .map {
     didSet {
       guard mode != oldValue else { return }
       menuOpen = false
-      if mode != .map, sheet != nil { sheet = nil }
+      if mode != .map, sheet != nil { minimizeSheet() }
       refreshStatus()
       restartPolling()  // predictions are needed in every mode but the plain map
     }
@@ -128,7 +137,7 @@ final class AppModel {
   /// The side menu. A sheet is drawn above everything else, so opening the menu puts the sheet away first (a journey
   /// then waits in the bar at the bottom of the map).
   var menuOpen = false {
-    didSet { if menuOpen, !oldValue, sheet != nil { sheet = nil } }
+    didSet { if menuOpen, !oldValue, sheet != nil { minimizeSheet() } }
   }
   /// True while the planner shows a pushed screen (a journey's details): the edge swipe then goes back, not to the menu.
   var planPushed = false
@@ -178,6 +187,16 @@ final class AppModel {
     if case .bus(let id) = sheet { return vehicles.first { $0.id == id } }
     return nil
   }
+
+  /// The bus in the dock, while it is still reporting.
+  var dockedVehicle: VehicleSample? { dockedVehicleID.flatMap { id in vehicles.first { $0.id == id } } }
+
+  /// What the map marks as chosen: the open stop or bus, or else the one waiting in the dock.
+  var markedStopID: String? { selectedStopID ?? dockedStopID }
+  var markedVehicleID: String? { selectedVehicle?.id ?? dockedVehicle?.id }
+
+  /// True when there is anything to bring back from the bottom of the map.
+  var hasDock: Bool { dockedStopID != nil || dockedVehicle != nil || mapJourney != nil }
 
   var orderedRoutes: [Route] { overlay?.orderedRoutes ?? [] }
 
@@ -347,22 +366,86 @@ final class AppModel {
     guard let stop = schedule?.stops[id] else { return }
     settings.noteRecent(stop: id)
     Haptics.selection(enabled: settings.values.hapticFeedback)
+    dockedStopID = nil
     sheet = .stop(id)
     if moveCamera { fly(to: stop.latitude, stop.longitude, minimumZoom: 15) }
   }
 
-  func selectBus(_ vehicleID: String) {
+  func selectBus(_ vehicleID: String, moveCamera: Bool = true) {
     returnStopID = selectedStopID ?? (sheet?.isDetail == true ? returnStopID : nil)
+    dockedVehicleID = nil
     sheet = .bus(vehicleID)
-    if let vehicle = vehicles.first(where: { $0.id == vehicleID }) {
-      fly(to: vehicle.latitude, vehicle.longitude, minimumZoom: 14)
-      if !focus.isActive, !vehicle.routeID.isEmpty {
-        var next = MapFocus.route(vehicle.routeID, direction: vehicleDirections[vehicle.id])
-        next.fromBus = true
-        focusReturn = nil
-        focus = next
-      }
+    guard let vehicle = vehicles.first(where: { $0.id == vehicleID }) else { return }
+    if moveCamera { fly(to: vehicle.latitude, vehicle.longitude, minimumZoom: 14) }
+    if !vehicle.routeID.isEmpty, !focusShows(vehicle) { focusOnTrip(of: vehicle) }
+  }
+
+  /// True when the map's focus leaves a bus where it is, so that opening the bus changes nothing on the map. A focus the
+  /// bus itself started is not kept: opening another bus from its sheet (through a stop's board) shows that bus's trip.
+  private func focusShows(_ vehicle: VehicleSample) -> Bool {
+    Self.focus(focus, shows: vehicle.id, route: vehicle.routeID, direction: vehicleDirections[vehicle.id], headsign: vehicleHeadsigns[vehicle.id])
+  }
+
+  nonisolated static func focus(_ focus: MapFocus, shows vehicleID: String, route: String, direction: Int?, headsign: String?) -> Bool {
+    guard focus.isActive, !focus.fromBus, focus.routes.contains(route) else { return false }
+    if let wanted = focus.direction, let own = direction, own != wanted { return false }
+    if let wanted = focus.headsign, let own = headsign, own != wanted { return false }
+    return focus.highlightedBuses.isEmpty || focus.highlightedBuses[vehicleID] != nil
+  }
+
+  /// Shows the line of one bus's own trip: its route, its direction and, where the route has several destinations in
+  /// that direction (D2 to Epic Campus, to Verona), only the line to its destination.
+  private func focusOnTrip(of vehicle: VehicleSample) {
+    let direction = vehicleDirections[vehicle.id]
+    let all = direction.map { overlay?.network.patterns(of: vehicle.routeID, direction: $0) ?? [] } ?? []
+    focusReturn = nil
+    focus = Self.tripFocus(route: vehicle.routeID, direction: direction, headsign: vehicleHeadsigns[vehicle.id], patterns: all)
+  }
+
+  /// The focus for a bus's trip: `patterns` are all the destinations of its route in its direction.
+  nonisolated static func tripFocus(route: String, direction: Int?, headsign: String?, patterns: [RoutePattern]) -> MapFocus {
+    var next = MapFocus.route(route, direction: direction)
+    if patterns.count > 1, let headsign, let pattern = patterns.first(where: { $0.headsign == headsign }) {
+      next.headsign = pattern.headsign
+      next.headsignStops = Set(pattern.stops)
     }
+    next.fromBus = true
+    return next
+  }
+
+  // MARK: Dock
+
+  /// Puts the open stop or bus away into the dock (the sheet closes, the map keeps it marked). Anything else just closes.
+  func minimizeSheet() {
+    switch sheet {
+    case .stop(let id)?: dockedStopID = id
+    case .bus(let id)?: dockedVehicleID = id
+    default: break
+    }
+    sheet = nil
+  }
+
+  /// Brings the sheet of the docked stop back.
+  func reopenDockedStop() {
+    guard let id = dockedStopID else { return }
+    dockedStopID = nil
+    sheet = .stop(id)
+  }
+
+  /// Brings the sheet of the docked bus back, with the line of its trip on the map.
+  func reopenDockedBus() {
+    guard let vehicle = dockedVehicle else { return }
+    dockedVehicleID = nil
+    sheet = .bus(vehicle.id)
+    if !vehicle.routeID.isEmpty, !focusShows(vehicle), !(focus.fromBus && focus.routes.contains(vehicle.routeID)) { focusOnTrip(of: vehicle) }
+  }
+
+  func closeDockedStop() { dockedStopID = nil }
+
+  /// Lets go of the docked bus, and of the line it had put on the map.
+  func closeDockedBus() {
+    dockedVehicleID = nil
+    if focus.fromBus { focus = MapFocus() }
   }
 
   // MARK: Punctuality
@@ -459,7 +542,9 @@ final class AppModel {
 
   func clearSelection() {
     returnStopID = nil
+    let closesBus = if case .bus? = sheet { true } else { false }
     sheet = nil
+    if closesBus, focus.fromBus { focus = MapFocus() }
   }
 
   /// Shows only `id` (in one direction, or both). Choosing from a list zooms out to the whole route; tapping the map
@@ -663,8 +748,8 @@ final class AppModel {
 
   private func selectionChanged() {
     showHiddenRoutes = false
-    // Closing a bus sheet releases the route that selecting the bus focused.
-    if sheet == nil, focus.fromBus { focus = MapFocus() }
+    // Closing a bus sheet releases the line that selecting the bus put on the map, unless the bus waits in the dock.
+    if sheet == nil, focus.fromBus, dockedVehicleID == nil { focus = MapFocus() }
     refreshArrivals()
     restartPolling()  // trip predictions are only fetched while a stop or bus is open
   }

@@ -126,6 +126,18 @@ case "accuracy":
   let dbPath = arguments.count >= 4 ? arguments[3] : directory.deletingLastPathComponent().appendingPathComponent("punctuality/observations.sqlite").path
   print(try Accuracy(schedule: schedule, recordings: try Recordings(directory: directory), store: try ObservationStore(path: dbPath)).markdown())
 
+case "early":
+  // feedanalysis early <recordings-root> [observations.sqlite]
+  let schedule = try Schedule.load(zipAt: scheduleZip(directory))
+  let dbPath = arguments.count >= 4 ? arguments[3] : directory.deletingLastPathComponent().appendingPathComponent("punctuality/observations.sqlite").path
+  print(try Accuracy(schedule: schedule, recordings: try Recordings(directory: directory), store: try ObservationStore(path: dbPath)).earlyArrivals())
+
+case "notstarted":
+  // feedanalysis notstarted <recordings-root> [observations.sqlite]
+  let schedule = try Schedule.load(zipAt: scheduleZip(directory))
+  let dbPath = arguments.count >= 4 ? arguments[3] : directory.deletingLastPathComponent().appendingPathComponent("punctuality/observations.sqlite").path
+  print(try Accuracy(schedule: schedule, recordings: try Recordings(directory: directory), store: try ObservationStore(path: dbPath)).notStarted())
+
 case "variants":
   // feedanalysis variants <recordings-root> <route id>
   guard arguments.count >= 4 else { fail("usage: feedanalysis variants <recordings-root> <route id>") }
