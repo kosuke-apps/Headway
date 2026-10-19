@@ -20,8 +20,8 @@ to the author. This was checked against the source on 2026-10-10 (every network 
 
 | To | What | Why |
 |---|---|---|
-| `transitdata.cityofmadison.com` (City of Madison, WI) | a request for the timetable file (at most once a day; it asks first whether the file changed; with "Save mobile data" on, only on Wi-Fi) | the bus timetable |
-| `metromap.cityofmadison.com` (City of Madison, WI) | requests for the live bus positions, trip predictions and service alerts | live buses and arrival times |
+| `transitdata.cityofmadison.com` (City of Madison, WI) | a request for the timetable file (at most once a day; it asks first whether the file changed; by default only on Wi-Fi, which can be changed in Settings > Mobile data) | the bus timetable |
+| `metromap.cityofmadison.com` (City of Madison, WI) | requests for the live bus positions (about every 30 seconds while the app is open), trip predictions (at most about once a minute, and only while something that needs them is open) and service alerts (once a minute) | live buses and arrival times |
 | Apple Maps (MapKit local search) | the text you type when you look for a place by name in the trip planner, with a fixed search area around Madison (not your position) | finding places for a trip; handled under Apple's privacy policy |
 
 The requests to the City carry no identifier and no location: they ask for the same public files for everyone. The
