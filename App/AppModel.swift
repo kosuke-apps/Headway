@@ -131,7 +131,8 @@ final class AppModel {
       menuOpen = false
       if mode != .map, sheet != nil { minimizeSheet() }
       refreshStatus()
-      restartPolling()  // predictions are needed in every mode but the plain map
+      if mode != .map { ensurePredictions() }  // predictions are needed in every mode but the plain map
+      restartPolling()
     }
   }
   /// The side menu. A sheet is drawn above everything else, so opening the menu puts the sheet away first (a journey
@@ -160,7 +161,10 @@ final class AppModel {
   var routeChoices: [String] = []
   private(set) var cameraRequest: CameraRequest?
 
-  @ObservationIgnored private let client = RealtimeClient()
+  @ObservationIgnored private let client = RealtimeClient(onTransfer: { feed, bytes in
+    let metered = NetworkStatus.shared.isMetered
+    Task { @MainActor in DataMeter.shared.record(DataKind(feed), bytes: bytes, metered: metered) }
+  })
   @ObservationIgnored private var pollTask: Task<Void, Never>?
   @ObservationIgnored private var started = false
   @ObservationIgnored private var isActive = true
@@ -170,6 +174,13 @@ final class AppModel {
   @ObservationIgnored private var feedPeriod: TimeInterval = 30
   @ObservationIgnored private var publishLag = PublishLag()
   @ObservationIgnored private var slowDataBusy = false
+  // Where the vehicle poll is in its cycle. Kept here, not in the loop, so that restarting the loop (a sheet opening, a mode
+  // change) carries on with the same schedule instead of asking at once and then retrying every two seconds.
+  @ObservationIgnored private var nextPollAt = Date.distantPast
+  @ObservationIgnored private var pollUnchanged = 0
+  @ObservationIgnored private var pollLastChange = Date.distantPast
+  @ObservationIgnored private var pollScheduled = false  // the next request is the one timed for the next feed
+  @ObservationIgnored private var fetchingPredictions = false
   @ObservationIgnored private var periods: [TimeInterval] = []
 
   static let scheduleURL = URL(string: "https://transitdata.cityofmadison.com/GTFS/mmt_gtfs.zip")!
@@ -259,7 +270,7 @@ final class AppModel {
 
   /// Fetches the buses again right away instead of waiting for the next beat of the city's feed.
   func refreshNow() {
-    restartPolling()
+    restartPolling(immediately: true)
     ensurePredictions()
   }
 
@@ -369,7 +380,7 @@ final class AppModel {
     guard !started else { return }
     started = true
     NetworkStatus.shared.start()
-    restartPolling()
+    restartPolling(immediately: true)
     Task { await loadPunctuality() }
     // The saved copy of the map data shows every route right away; the timetable is parsed behind it.
     let began = CFAbsoluteTimeGetCurrent()
@@ -395,7 +406,7 @@ final class AppModel {
   /// Live polling pauses in the background when the user chose that.
   func setActive(_ active: Bool) {
     isActive = active
-    restartPolling()
+    restartPolling(immediately: active)
   }
 
   // MARK: Selection and camera
@@ -791,6 +802,7 @@ final class AppModel {
     // Closing a bus sheet releases the line that selecting the bus put on the map, unless the bus waits in the dock.
     if sheet == nil, focus.fromBus, dockedVehicleID == nil { focus = MapFocus() }
     refreshArrivals()
+    if sheet?.isDetail == true { ensurePredictions() }  // fresh predictions for what has just opened, then at the rider's pace
     restartPolling()  // trip predictions are only fetched while a stop or bus is open
   }
 
@@ -940,10 +952,10 @@ final class AppModel {
     if !force, Date().timeIntervalSince(modified) < 86_400 { return .upToDate }
     var request = URLRequest(url: Self.scheduleURL)
     request.cachePolicy = .reloadIgnoringLocalCacheData
-    // The timetable is 7 MB and changes every few weeks: with "Save mobile data" on it waits for Wi-Fi, unless the copy the
-    // phone has is no longer valid, when a current one matters more than the data.
+    // The timetable is 7 MB and changes every few weeks: unless the rider allowed mobile data for it, it waits for Wi-Fi, but
+    // not when the copy the phone has is no longer valid (a current one matters more than the data) or the rider asked.
     let expired = schedule?.feedEnd.map { $0.value < ServiceDate(Date(), in: schedule?.timeZone ?? .current).value } ?? false
-    if settings.values.saveMobileData, !expired, !force { request.allowsExpensiveNetworkAccess = false }
+    if settings.values.timetableOnlyOnWiFi, !expired, !force { request.allowsExpensiveNetworkAccess = false }
     let defaults = UserDefaults.standard
     if FileManager.default.fileExists(atPath: cache.path) {
       if let etag = defaults.string(forKey: Self.etagKey) { request.setValue(etag, forHTTPHeaderField: "If-None-Match") }
@@ -957,6 +969,8 @@ final class AppModel {
         return .upToDate
       }
       guard http.statusCode == 200 else { return .failed }
+      let size = (try? temporary.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+      DataMeter.shared.record(.timetable, bytes: size, metered: NetworkStatus.shared.isMetered)
       let fresh = try await Self.parse(temporary, current: overlay)
       remember(http, in: defaults)
       if fresh.schedule.feedVersion == schedule?.feedVersion {
@@ -987,6 +1001,8 @@ final class AppModel {
     do {
       let (temporary, response) = try await URLSession.shared.download(from: Self.scheduleURL)
       guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return false }
+      DataMeter.shared.record(
+        .timetable, bytes: (try? temporary.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0, metered: NetworkStatus.shared.isMetered)
       try? FileManager.default.removeItem(at: cache)
       try FileManager.default.moveItem(at: temporary, to: cache)
       remember(http, in: .standard)
@@ -998,10 +1014,16 @@ final class AppModel {
 
   // MARK: Live data
 
-  private func restartPolling() {
+  /// Starts the vehicle poll again. It carries on with its schedule (the next request waits for its time) unless
+  /// `immediately`: the rider asked for fresh buses, or the app has just come back to the foreground.
+  private func restartPolling(immediately: Bool = false) {
     pollTask?.cancel()
     guard started else { return }
     if !isActive && settings.values.pauseLiveInBackground { return }
+    if immediately {
+      nextPollAt = .distantPast
+      pollScheduled = false
+    }
     pollTask = Task { [weak self] in await self?.pollLoop() }
   }
 
@@ -1011,9 +1033,11 @@ final class AppModel {
   /// about a third of the requests of a fixed 10-second poll. Only local time is used, so a wrong clock on the phone
   /// cannot throw the timing off.
   private func pollLoop() async {
-    var unchanged = 0
-    var lastChange = Date.distantPast
-    var scheduled = false  // the next request is the one timed for the next feed (not a retry, not the first after a start)
+    let wait = nextPollAt.timeIntervalSinceNow
+    if wait > 0 {
+      try? await Task.sleep(for: .seconds(wait))
+      if Task.isCancelled { return }
+    }
     while !Task.isCancelled {
       var delay = 10.0
       do {
@@ -1023,10 +1047,10 @@ final class AppModel {
           if let old = feedTimestamp, let new = snapshot.feedTimestamp, new > old { notePeriod(new.timeIntervalSince(old)) }
           if let stamp = snapshot.feedTimestamp, let serverNow = snapshot.serverDate {
             let age = serverNow.timeIntervalSince(stamp)
-            pollLog.info("new feed: \(Int(age.rounded())) s old, \(unchanged + 1) requests, lag estimate \(self.publishLag.estimate, format: .fixed(precision: 1)) s, scheduled \(scheduled)")
-            if scheduled { publishLag.note(age: age) }
+            pollLog.info("new feed: \(Int(age.rounded())) s old, \(self.pollUnchanged + 1) requests, lag estimate \(self.publishLag.estimate, format: .fixed(precision: 1)) s, scheduled \(self.pollScheduled)")
+            if pollScheduled { publishLag.note(age: age) }
           }
-          scheduled = false
+          pollScheduled = false
           feedTimestamp = snapshot.feedTimestamp
           vehicles = snapshot.vehicles
           vehicleDirections = directions(of: snapshot.vehicles)
@@ -1034,10 +1058,10 @@ final class AppModel {
           vehicleHeadings = headings(of: snapshot.vehicles)
           vehicleHeadsigns = headsigns(of: snapshot.vehicles)
           offRouteVehicleIDs = computeOffRoute(snapshot.vehicles)
-          unchanged = 0
-          lastChange = Date()
+          pollUnchanged = 0
+          pollLastChange = Date()
         } else {
-          unchanged += 1
+          pollUnchanged += 1
         }
         lastLiveUpdate = Date()
         liveFailing = false
@@ -1049,11 +1073,11 @@ final class AppModel {
           // phone's clock does not matter. A feed turns up on the server a few seconds after its stamp (`publishLag`,
           // learned); asking a second before that costs at most one retry, asking much earlier costs several.
           delay = min(45, max(2, stamp.addingTimeInterval(feedPeriod + publishLag.estimate - 1).timeIntervalSince(serverNow)))
-          scheduled = true
+          pollScheduled = true
         } else if isNew {
-          delay = max(2, lastChange.addingTimeInterval(feedPeriod - 1).timeIntervalSinceNow)
+          delay = max(2, pollLastChange.addingTimeInterval(feedPeriod - 1).timeIntervalSinceNow)
         } else {
-          delay = unchanged < 8 ? 2 : 10  // the feed is late or stopped: do not hammer the server
+          delay = pollUnchanged < 8 ? 2 : 10  // the feed is late or stopped: do not hammer the server
         }
         // The large downloads run beside the poll, never in front of it: on a slow connection the positions must not wait.
         if isNew { startSlowData() }
@@ -1065,6 +1089,7 @@ final class AppModel {
       }
       refreshArrivals()
       refreshStatus()
+      nextPollAt = Date().addingTimeInterval(delay)
       try? await Task.sleep(for: .seconds(delay))
     }
   }
@@ -1096,21 +1121,43 @@ final class AppModel {
     if sheet?.isDetail == true || mode != .map || watching || needsDelays,
       Date().timeIntervalSince(lastTripsFetch) >= predictionInterval(watching: watching)
     {
-      if let snapshot = try? await client.fetch(.trips) {
-        predictions = snapshot.predictions
-        lastTripsFetch = Date()
-      }
+      await fetchPredictions()
     }
   }
 
-  /// How old the trip updates may get before they are fetched again. A stop or bus on screen, the planner and a watched
-  /// route need them fresh (a minute); a focused route, a list or the service board only want the counts (two minutes).
-  /// On mobile data, or in Low Data Mode, with "Save mobile data" on, twice and four times as long. Measured before this
-  /// limit existed: 20 MB an hour with a stop open, against 2 MB an hour for the positions alone. A few seconds are taken
-  /// off, because the vehicle feed that triggers a fetch beats every 30 seconds.
+  /// Fetches the trip updates, unless a fetch is already under way (opening a stop and the poll must not both download them).
+  private func fetchPredictions() async {
+    guard !fetchingPredictions else { return }
+    fetchingPredictions = true
+    defer { fetchingPredictions = false }
+    if let snapshot = try? await client.fetch(.trips) {
+      predictions = snapshot.predictions
+      lastTripsFetch = Date()
+    }
+  }
+
+  /// How old the trip updates may get before they are fetched again, from the rider's choice for the connection they are
+  /// on (Settings > Mobile data). Automatic: a stop or bus on screen, the planner and a watched route need them fresh (a
+  /// minute); a focused route, a list or the service board only want the counts (two minutes); on mobile data, with "Save
+  /// mobile data" on, twice and four times as long (Low Data Mode). Measured before this limit existed: 20 MB an hour with
+  /// a stop open, against 2 MB an hour for the positions alone. A few seconds are taken off, because the vehicle feed that
+  /// triggers a fetch beats every 30 seconds or more.
   func predictionInterval(watching: Bool) -> TimeInterval {
+    let values = settings.values
+    let network = NetworkStatus.shared
     let urgent = sheet?.isDetail == true || mode == .plan || watching
-    return (urgent ? 60 : 120) * NetworkStatus.shared.slowdown(saving: settings.values.saveMobileData) - 5
+    return Self.predictionInterval(
+      network.isMetered ? values.predictionsOnMobile : values.predictionsOnWiFi, urgent: urgent,
+      slowdown: network.slowdown(saving: values.saveMobileData), watching: watching)
+  }
+
+  /// The gap between two fetches for a choice (infinite when nothing is fetched by itself).
+  nonisolated static func predictionInterval(_ choice: PredictionRefresh, urgent: Bool, slowdown: Double, watching: Bool) -> TimeInterval {
+    switch choice {
+    case .automatic: return (urgent ? 60 : 120) * slowdown - 5
+    case .manual: return watching ? 295 : .infinity  // a watched route is still checked, every five minutes
+    default: return (choice.seconds ?? 60) - 5
+    }
   }
 
   // MARK: Watched routes
@@ -1195,13 +1242,13 @@ final class AppModel {
     if idle != idleBuses { idleBuses = idle }
   }
 
-  /// Fetches the trip updates now (when the last ones are over 20 s old), for a screen that has just opened and needs them.
+  /// Fetches the trip updates now (when the last ones are over 30 s old), for a screen that has just opened and needs them,
+  /// or because the rider asked for fresh data. Whatever the refresh setting says.
   func ensurePredictions() {
-    guard Date().timeIntervalSince(lastTripsFetch) > 20 else { return refreshStatus() }
+    guard Date().timeIntervalSince(lastTripsFetch) > 30 else { return refreshStatus() }
     Task { [weak self] in
-      guard let self, let snapshot = try? await client.fetch(.trips) else { return }
-      predictions = snapshot.predictions
-      lastTripsFetch = Date()
+      guard let self else { return }
+      await fetchPredictions()
       refreshStatus()
       refreshArrivals()
     }

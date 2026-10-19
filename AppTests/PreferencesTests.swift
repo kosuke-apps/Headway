@@ -27,6 +27,19 @@ import Testing
     #expect(back.saveMobileData == false)
   }
 
+  @Test func dataChoicesDefaultToAutomaticAndWiFiOnlyTimetable() throws {
+    let prefs = try decode(#"{}"#)
+    #expect(prefs.predictionsOnWiFi == .automatic)
+    #expect(prefs.predictionsOnMobile == .automatic)
+    #expect(prefs.timetableOnlyOnWiFi)
+    let chosen = try decode(#"{"predictionsOnMobile":"manual","predictionsOnWiFi":"everyMinute","timetableOnlyOnWiFi":false}"#)
+    #expect(chosen.predictionsOnMobile == .manual)
+    #expect(chosen.predictionsOnWiFi == .everyMinute)
+    #expect(!chosen.timetableOnlyOnWiFi)
+    // A value this version does not know falls back instead of failing.
+    #expect(try decode(#"{"predictionsOnMobile":"hourly"}"#).predictionsOnMobile == .automatic)
+  }
+
   @Test func unknownValuesFallBackInsteadOfFailing() throws {
     let prefs = try decode(#"{"appearance":"sepia","updateInterval":7,"stopVisibility":42}"#)
     #expect(prefs.appearance == .system)

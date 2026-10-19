@@ -277,10 +277,6 @@ struct ArrivalRow: View {
           }
         }
         }
-        // A bus that reports a position opens on the map; a trip without one has nothing to open.
-        if arrival.vehicle != nil {
-          Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
-        }
       }
       .padding(.horizontal, 16).padding(.vertical, 10)
       .contentShape(Rectangle())

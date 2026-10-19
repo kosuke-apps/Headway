@@ -54,6 +54,28 @@ enum DelayDetail: String, CaseIterable, Identifiable {
   var id: String { rawValue }
 }
 
+/// How often the arrival predictions (160 KB each) are fetched while a stop, a bus, the planner or a list needs them.
+enum PredictionRefresh: String, Codable, CaseIterable, Identifiable {
+  /// Every minute for a stop, a bus, the planner or watched routes and every two minutes otherwise; on mobile data with
+  /// "Save mobile data" on, twice and (in Low Data Mode) four times as long.
+  case automatic
+  case every30Seconds, everyMinute, everyTwoMinutes, everyFiveMinutes
+  /// Only when a stop or bus opens or the rider pulls the list down (watched routes still every five minutes).
+  case manual
+  var id: String { rawValue }
+
+  /// The chosen gap in seconds; `nil` for automatic and manual.
+  var seconds: TimeInterval? {
+    switch self {
+    case .every30Seconds: 30
+    case .everyMinute: 60
+    case .everyTwoMinutes: 120
+    case .everyFiveMinutes: 300
+    case .automatic, .manual: nil
+    }
+  }
+}
+
 enum ArrivalStyle: String, Codable, CaseIterable, Identifiable {
   /// "4 min", switching to a clock time when far off.
   case countdown
@@ -87,8 +109,13 @@ struct Preferences: Codable, Equatable {
   /// Move each bus along its route at its last speed between reports.
   var estimateBusPositions = true
   var pauseLiveInBackground = true
-  /// On mobile data (or in Low Data Mode) fetch the large trip updates less often, and download the timetable only on Wi-Fi.
+  /// In automatic mode, on mobile data (or in Low Data Mode) fetch the large trip updates less often.
   var saveMobileData = true
+  /// How often predictions are fetched on Wi-Fi, and on mobile data or in Low Data Mode.
+  var predictionsOnWiFi: PredictionRefresh = .automatic
+  var predictionsOnMobile: PredictionRefresh = .automatic
+  /// Download the timetable (7 MB, a few times a year) only on Wi-Fi, unless the phone's copy has expired.
+  var timetableOnlyOnWiFi = true
 
   // Time
   var clockFormat: ClockFormat = .system
@@ -155,6 +182,9 @@ struct Preferences: Codable, Equatable {
     estimateBusPositions = value(.estimateBusPositions, d.estimateBusPositions)
     pauseLiveInBackground = value(.pauseLiveInBackground, d.pauseLiveInBackground)
     saveMobileData = value(.saveMobileData, d.saveMobileData)
+    predictionsOnWiFi = value(.predictionsOnWiFi, d.predictionsOnWiFi)
+    predictionsOnMobile = value(.predictionsOnMobile, d.predictionsOnMobile)
+    timetableOnlyOnWiFi = value(.timetableOnlyOnWiFi, d.timetableOnlyOnWiFi)
     clockFormat = value(.clockFormat, d.clockFormat)
     arrivalStyle = value(.arrivalStyle, d.arrivalStyle)
     showDelayDetails = value(.showDelayDetails, d.showDelayDetails)
@@ -187,7 +217,7 @@ struct Preferences: Codable, Equatable {
 
   private enum Key: String, CodingKey {
     case language, appearance, routePalette, markerSize, showRouteNameOnBuses, routeLineWidth, focusStyle, focusFade, stopVisibility, showStopNames
-    case updateInterval, smoothBusMovement, estimateBusPositions, pauseLiveInBackground, saveMobileData
+    case updateInterval, smoothBusMovement, estimateBusPositions, pauseLiveInBackground, saveMobileData, predictionsOnWiFi, predictionsOnMobile, timetableOnlyOnWiFi
     case clockFormat, arrivalStyle, showDelayDetails, showScheduledTimes
     case hapticFeedback, rememberMapPosition
     case walkSpeed, maxWalkMeters, maxTransfers, transferSeconds, accessibleOnly, journeySort, reminderLeadMinutes
