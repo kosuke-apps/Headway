@@ -217,6 +217,12 @@ case "offroute":
 case "freshness":
   print(try Freshness(recordings: try Recordings(directory: directory)).markdown())
 
+case "ages":
+  // feedanalysis ages <recordings-root>
+  var ages = PositionAges(recordings: try Recordings(directory: directory))
+  if arguments.count >= 4, let threshold = Double(arguments[3]) { ages.threshold = threshold }
+  print(try ages.markdown())
+
 case "deviation":
   let schedule = try Schedule.load(zipAt: scheduleZip(directory))
   print(try Deviation(schedule: schedule, recordings: try Recordings(directory: directory)).markdown())

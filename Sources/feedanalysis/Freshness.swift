@@ -67,3 +67,62 @@ struct Freshness {
     return out
   }
 }
+
+/// How old were the bus positions inside each recorded vehicle feed, by local hour? Answers "why do the positions sometimes
+/// say 3 minutes old": is it the city's feed (its buses' reports arrive late) or the phone?
+struct PositionAges {
+  let recordings: Recordings
+  var timeZone = TimeZone(identifier: "America/Chicago")!
+  /// Snapshots whose median position is older than this are listed.
+  var threshold: Double = 100
+
+  func markdown() throws -> String {
+    struct Row { var medians: [Double] = [] }
+    var byHour: [Int: Row] = [:]
+    var unreadable = 0
+    var all: [(Date, Double)] = []
+    var worst: [(Date, Double, Double, Int)] = []  // when, median age, feed age at fetch, buses
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = timeZone
+    for file in recordings.files(of: .vehicles) {
+      // A few recordings are empty or cut off (the city sent 15 bytes, or nothing): they are counted, not fatal.
+      guard let data = try? gunzip(Data(contentsOf: file.url)), let snapshot = try? RealtimeDecoder.decode(data) else { unreadable += 1; continue }
+      guard let header = snapshot.feedTimestamp else { continue }
+      let ages = snapshot.vehicles.compactMap { $0.timestamp.map { header.timeIntervalSince($0) } }.sorted()
+      guard ages.count >= 10 else { continue }
+      let median = ages[ages.count / 2]
+      let weekday = calendar.component(.weekday, from: file.recordedAt)
+      _ = weekday
+      byHour[calendar.component(.hour, from: file.recordedAt), default: Row()].medians.append(median)
+      all.append((file.recordedAt, median))
+      if median > threshold { worst.append((file.recordedAt, median, file.recordedAt.timeIntervalSince(header), ages.count)) }
+    }
+    func q(_ values: [Double], _ p: Double) -> Int {
+      let sorted = values.sorted()
+      return Int(sorted[min(sorted.count - 1, Int(p * Double(sorted.count)))].rounded())
+    }
+    var byDayHour: [String: [Double]] = [:]
+    let dayFormatter = DateFormatter()
+    dayFormatter.timeZone = timeZone
+    dayFormatter.dateFormat = "MM-dd HH"
+    for item in all { byDayHour[dayFormatter.string(from: item.0), default: []].append(item.1) }
+    var perDay = "\n## Per day and hour (7 to 9 o'clock)\n\n| day hour | snapshots | median of medians s | max s |\n|---|---:|---:|---:|\n"
+    for key in byDayHour.keys.sorted() where ["07", "08", "09"].contains(String(key.suffix(2))) {
+      let m = byDayHour[key]!.sorted()
+      perDay += "| \(key) | \(m.count) | \(Int(m[m.count / 2])) | \(Int(m.last!)) |\n"
+    }
+    var out = "# Age of the bus positions inside the city's feed\n\n\(unreadable) recordings could not be read.\n\nMedian over the buses of a snapshot (feed timestamp minus the position's own timestamp), by local hour.\n\n"
+    out += "| hour | snapshots | median s | p90 s | share over 60 s | share over 120 s |\n|---|---:|---:|---:|---:|---:|\n"
+    for hour in byHour.keys.sorted() {
+      let m = byHour[hour]!.medians
+      let over60 = Double(m.filter { $0 > 60 }.count) / Double(m.count) * 100, over120 = Double(m.filter { $0 > 120 }.count) / Double(m.count) * 100
+      out += "| \(hour) | \(m.count) | \(q(m, 0.5)) | \(q(m, 0.9)) | \(String(format: "%.1f", over60))% | \(String(format: "%.1f", over120))% |\n"
+    }
+    out += "\nSnapshots whose median position was over \(Int(threshold)) s old: \(worst.count)\n\n| time | median age s | feed age at fetch s | buses |\n|---|---:|---:|---:|\n"
+    let formatter = DateFormatter()
+    formatter.timeZone = timeZone
+    formatter.dateFormat = "MM-dd HH:mm:ss"
+    for item in worst.prefix(400) { out += "| \(formatter.string(from: item.0)) | \(Int(item.1)) | \(Int(item.2)) | \(item.3) |\n" }
+    return out + perDay
+  }
+}
