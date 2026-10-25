@@ -11,7 +11,9 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p data/punctuality
 if ls data/feeds/*/mmt_gtfs.zip >/dev/null 2>&1; then
-  swift build -c release --product feedanalysis 2>&1 | tail -n 1
+  # --force-resolved-versions: a plain build rewrites the tracked Package.resolved (it drops the MapLibre pin that only the
+  # app uses), and the nightly job would leave the working tree dirty every morning.
+  swift build -c release --product feedanalysis --force-resolved-versions 2>&1 | tail -n 1
   .build/release/feedanalysis punctuality data/feeds data/punctuality/punctuality.json ${1:+"$1"}
 else
   echo '{"generated":"1970-01-01T00:00:00Z","firstDay":"","lastDay":"","days":0,"observations":0,"routeCells":{},"stopCells":{},"predictionBins":[]}' > data/punctuality/punctuality.json

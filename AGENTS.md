@@ -271,9 +271,9 @@ The author's general workspace rules (outside this repository) apply too; this f
   6 days. The jobs must be loaded from `~/Library/LaunchAgents` (copies of `data/launchd/*.plist`): a job loaded straight
   from `data/launchd/` is forgotten at the next restart, which lost four days in October 2026. Check after any restart:
   `launchctl print gui/$(id -u)/dev.kosuke.headway.pull` and `python3 tools/pull_feeds.py --status`. A nightly job (04:30)
-  runs the prebuilt `.build/release/feedanalysis punctuality` (not `tools/build_punctuality.sh`, which builds it first: after
-  a change to the tool, run `swift build -c release --product feedanalysis`), which turns recorded bus positions into
-  observed arrival times (SQLite, `data/punctuality/observations.sqlite`) and exports `data/punctuality/punctuality.json`,
+  runs `tools/build_punctuality.sh` (it builds `feedanalysis` first, so a change to the tool takes effect that night; until
+  2026-10-25 the job ran the prebuilt binary directly and a crash went unnoticed for three nights), which turns recorded bus
+  positions into observed arrival times (SQLite, `data/punctuality/observations.sqlite`) and exports `data/punctuality/punctuality.json`,
   which the app bundles. A snapshot
   the city sent as a few bytes (15 in October 2026) is counted and skipped (`unreadable:<day>` in the database); it once
   stopped the job for three nights (`FeedAnalysisTests` runs the real tool on a folder that holds one).
