@@ -164,6 +164,12 @@ a bus sheet open):
 - Markers stopped gliding when the feed was behind: a report 60 to 90 s old was moved on to the 50 s mark at once and then
   stood still until the next feed. The limit now leaves 25 s of movement after the report arrives (`extrapolationLimit`).
 
+On Wi-Fi the same thing was seen on 2026-10-24 at 21:49 CDT: the phone said "positions 157 s old" and its card "the last
+update came 21 s ago, and the positions in it were already 137 s old", so the app was receiving feeds and the feeds were old.
+A fetch from the Mac at 21:52 to 21:53 agreed: the stamp of the feed stood still for more than 70 s, the newest position of
+all 37 buses was already 97 s old when it was fetched, and the median grew from 104 to 141 s. That is the city's feed, on
+Wi-Fi, in the evening; it is not a mobile-data problem.
+
 Data saving is not involved: "Save mobile data" only slows the trip-prediction downloads.
 
 What the app does about the city's feed: the card that opens from the status line tells a late feed ("the city's feed is

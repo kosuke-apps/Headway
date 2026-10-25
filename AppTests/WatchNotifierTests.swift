@@ -22,13 +22,13 @@ import Testing
     let late = WatchEvent(
       kind: .late, routeID: "D", buses: 1, seconds: 600, alertID: "", headline: "", detail: "", headsign: "2-EPIC CAMPUS", directionName: "Eastbound")
     let text = WatchNotifier.text(for: late, routeName: "D")
-    #expect(text.title == "🔴 D2 Epic Campus +10 min")
-    #expect(text.body == "Eastbound")
+    #expect(text.title == "🔴 D2 +10 min")
+    #expect(text.body == "Epic Campus\nEastbound")
     let early = WatchEvent(
       kind: .early, routeID: "D", buses: 3, seconds: 200, alertID: "", headline: "", detail: "", headsign: "1-UW HOSPITAL", directionName: "Westbound")
     let other = WatchNotifier.text(for: early, routeName: "D")
-    #expect(other.title == "🔵 D1 UW Hospital −3 min")
-    #expect(other.body == "Westbound · 🚌 ×3")
+    #expect(other.title == "🔵 D1 −3 min")
+    #expect(other.body == "UW Hospital\nWestbound · 🚌 ×3")
     #expect(text.title != other.title)
   }
 
