@@ -251,7 +251,7 @@ The author's general workspace rules (outside this repository) apply too; this f
 - Tools installed with Homebrew for this project: protobuf, swift-protobuf, pmtiles, xcodegen.
 - App: `xcodegen generate`, then
   `xcodebuild -project Headway.xcodeproj -scheme Headway -destination 'platform=iOS Simulator,name=iPhone 18 Pro' -derivedDataPath build/DerivedData build CODE_SIGNING_ALLOWED=NO`.
-- Tests: `swift test` (data layer),
+- Tests: `swift test` (data layer and the tool),
   `xcodebuild test -project Headway.xcodeproj -scheme Headway -destination 'platform=iOS Simulator,name=iPhone 18 Pro' CODE_SIGNING_ALLOWED=NO`
   (app; use the simulator's UDID when two are booted) and `cd collector && npm test` (runs the Worker in Cloudflare's
   runtime locally). The counts are in the README's Quality checks; update them there when tests are added.
@@ -272,7 +272,9 @@ The author's general workspace rules (outside this repository) apply too; this f
   from `data/launchd/` is forgotten at the next restart, which lost four days in October 2026. Check after any restart:
   `launchctl print gui/$(id -u)/dev.kosuke.headway.pull` and `python3 tools/pull_feeds.py --status`. A nightly job (04:30)
   runs `tools/build_punctuality.sh`, which turns recorded bus positions into observed arrival times (SQLite,
-  `data/punctuality/observations.sqlite`) and exports `data/punctuality/punctuality.json`, which the app bundles.
+  `data/punctuality/observations.sqlite`) and exports `data/punctuality/punctuality.json`, which the app bundles. A snapshot
+  the city sent as a few bytes (15 in October 2026) is counted and skipped (`unreadable:<day>` in the database); it once
+  stopped the job for three nights (`FeedAnalysisTests` runs the real tool on a folder that holds one).
   `feedanalysis freshness|accuracy|punctuality` explain the feed's real latency, prediction accuracy and punctuality;
   `early` (what the predictions said about arrivals that were early or late) and `notstarted` (predictions for trips whose
   bus is still on its previous trip) answer the two questions that came up from riding; their results are in

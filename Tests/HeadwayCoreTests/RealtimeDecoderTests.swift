@@ -103,6 +103,14 @@ import Testing
     #expect(throws: (any Error).self) { try RealtimeDecoder.decode(Data()) }
   }
 
+  @Test func aFeedCutShortThrowsInsteadOfCrashing() throws {
+    // The city sometimes answers with 15 bytes (seen in October 2026): too short for a feed, so an error, never a crash.
+    let whole = try feed()
+    let short = whole.prefix(15)
+    #expect(short.count == 15)
+    #expect(throws: (any Error).self) { try RealtimeDecoder.decode(Data(short)) }
+  }
+
   @Test func garbageThrows() {
     #expect(throws: (any Error).self) { try RealtimeDecoder.decode(Data([0xFF, 0xFF, 0xFF, 0xFF, 0xFF])) }
   }

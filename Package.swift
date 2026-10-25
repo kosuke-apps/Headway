@@ -27,6 +27,11 @@ let package = Package(
       swiftSettings: [.swiftLanguageMode(.v5)]
     ),
     .testTarget(
+      name: "FeedAnalysisTests",
+      dependencies: ["feedanalysis", "HeadwayCore"],
+      swiftSettings: [.swiftLanguageMode(.v5)]
+    ),
+    .testTarget(
       name: "HeadwayCoreTests",
       dependencies: ["HeadwayCore"],
       swiftSettings: [.swiftLanguageMode(.v5)]

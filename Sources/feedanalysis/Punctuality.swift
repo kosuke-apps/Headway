@@ -40,8 +40,14 @@ struct PunctualityBuilder {
 
       var samples: [String: [PositionSample]] = [:]
       var serviceDateCache: [String: ServiceDate?] = [:]
+      // The city sometimes answers with a few bytes (15 in October 2026) that the recorder stores like any other snapshot.
+      // Such a file is counted and skipped; it must not stop the nightly job.
+      var unreadable = 0
       for file in dayFiles {
-        let snapshot = try RealtimeDecoder.decode(try gunzip(Data(contentsOf: file.url)))
+        guard let snapshot = try? RealtimeDecoder.decode(try gunzip(Data(contentsOf: file.url))) else {
+          unreadable += 1
+          continue
+        }
         for vehicle in snapshot.vehicles {
           guard !vehicle.tripID.isEmpty, let time = vehicle.timestamp else { continue }
           let cacheKey = "\(vehicle.tripID)|\(localDay(time))"
@@ -79,7 +85,8 @@ struct PunctualityBuilder {
       }
       try store.replace(day: serviceDay, with: rows)
       try store.setMeta("files:\(day)", signature)
-      print("  \(samples.count) trips, \(rows.count) observations")
+      try store.setMeta("unreadable:\(day)", "\(unreadable)")
+      print("  \(samples.count) trips, \(rows.count) observations\(unreadable > 0 ? "; \(unreadable) unreadable snapshot(s) skipped" : "")")
     }
   }
 
