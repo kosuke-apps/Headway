@@ -90,7 +90,7 @@ struct RootView: View {
     .preferredColorScheme(colorScheme)
     .onChange(of: model.settings.values.language) { _, language in LanguageState.shared.apply(language) }
     .onChange(of: scenePhase) { _, phase in
-      model.setActive(phase == .active)
+      model.setActive(phase != .background)
       if phase == .background { WatchBackground.schedule(enabled: model.settings.values.watchEnabled && model.settings.values.isWatchingAnything) }
     }
   }

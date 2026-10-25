@@ -84,6 +84,7 @@ struct PositionAges {
     // What a phone would have shown: the age of the median position at the moment of the fetch (the feed's own lag and the
     // time the feed had been standing still), and the gaps between one feed stamp and the next.
     var totals: [Double] = []
+    var worstTotal: [(Date, Double, Double)] = []  // when, total age, feed age at fetch
     var totalsByHour: [Int: [Double]] = [:]
     var totalsByDay: [String: [Double]] = [:]
     let dayKey = DateFormatter()
@@ -103,6 +104,7 @@ struct PositionAges {
       let median = ages[ages.count / 2]
       let totalAge = file.recordedAt.timeIntervalSince(header) + median
       totals.append(totalAge)
+      if totalAge > threshold { worstTotal.append((file.recordedAt, totalAge, file.recordedAt.timeIntervalSince(header))) }
       totalsByHour[calendar.component(.hour, from: file.recordedAt), default: []].append(totalAge)
       totalsByDay[dayKey.string(from: file.recordedAt), default: []].append(totalAge)
       if let last = lastHeader, header > last { headerGaps.append(header.timeIntervalSince(last)) }
@@ -151,6 +153,13 @@ struct PositionAges {
       let m = totalsByDay[day]!
       func share(_ limit: Double) -> String { String(format: "%.1f%%", Double(m.filter { $0 > limit }.count) / Double(m.count) * 100) }
       phone += "| \(day) | \(m.count) | \(q(m, 0.5)) | \(q(m, 0.9)) | \(share(90)) | \(share(120)) | \(share(168)) |\n"
+    }
+    if !worstTotal.isEmpty {
+      let when = DateFormatter()
+      when.timeZone = timeZone
+      when.dateFormat = "MM-dd HH:mm:ss"
+      phone += "\nSnapshots whose median position was over \(Int(threshold)) s old at the fetch: \(worstTotal.count)\n\n| time | age s | feed stamp age s |\n|---|---:|---:|\n"
+      for item in worstTotal.prefix(400) { phone += "| \(when.string(from: item.0)) | \(Int(item.1)) | \(Int(item.2)) |\n" }
     }
     if !headerGaps.isEmpty {
       func gapShare(_ limit: Double) -> String { String(format: "%.1f%%", Double(headerGaps.filter { $0 > limit }.count) / Double(headerGaps.count) * 100) }

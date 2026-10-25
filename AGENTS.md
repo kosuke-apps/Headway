@@ -285,8 +285,10 @@ The author's general workspace rules (outside this repository) apply too; this f
   the board therefore shows the timetable for the rest. Whether predictions are biased is unverified (see
   `docs/data-sources.md`).
 - The city's feed has stalled and lagged since about 2026-10-20 (a stamp standing still for 90 s, positions 60 to 90 s behind
-  it; the status line said "168 s old" and Refresh could not help): see `docs/data-sources.md`, "When positions are a minute
-  or two old". The live card says so when positions are over a minute old.
+  it). The rider's "168 s old" with Refresh doing nothing is not explained by it (see `docs/data-sources.md`, "When positions
+  are a minute or two old"): the poll used to stop while the app was merely "inactive" and Refresh then did nothing; now only
+  the background pauses it and Refresh always asks. The live card says whether the city's feed or the phone's connection is
+  behind when positions are over a minute old.
 - Live latency (measured on 2026-10-03, see `docs/data-sources.md`): a bus reports every 30 s, the feed is rebuilt every
   30 s, positions are about 25 s old on arrival. The app times its requests from the server's `Date` header, dead-reckons
   buses along their route at their last speed (up to 50 s), and veils buses silent for over 75 s (45 s beyond the fleet's median age when the whole feed is behind,

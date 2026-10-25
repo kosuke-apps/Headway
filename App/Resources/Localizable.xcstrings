@@ -5409,6 +5409,17 @@
           }
         }
       }
+    },
+    "The app has had no answer from the city for %lld s. It keeps trying.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アプリは%lld秒間，市から応答を受け取っていません．再試行を続けています．"
+          }
+        }
+      }
     }
   }
 }

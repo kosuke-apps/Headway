@@ -24,7 +24,11 @@ struct LiveSummary: View {
           tile(fleet.early, "Early", .blue)
           tile(fleet.total - fleet.measured, "No prediction", .gray)
         }
-        if let age, age > 60, let changed = model.feedChangedAt, !model.liveFailing {
+        if let age, age > 60, let asked = model.lastLiveUpdate, context.date.timeIntervalSince(asked) > 25, !model.liveFailing {
+          // The phone itself has had no answer for a while (a request that hangs, a connection that is not getting through).
+          Label("The app has had no answer from the city for \(Int(context.date.timeIntervalSince(asked).rounded())) s. It keeps trying.", systemImage: "wifi.exclamationmark")
+            .font(.footnote).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
+        } else if let age, age > 60, let changed = model.feedChangedAt, !model.liveFailing {
           // Not the phone, not the connection: the city's server has not published a newer feed, or published one whose
           // positions were already old. Asking again cannot help, so the card says so instead of leaving the rider to press
           // Refresh.

@@ -275,7 +275,8 @@ final class AppModel {
 
   /// Fetches the buses again right away instead of waiting for the next beat of the city's feed.
   func refreshNow() {
-    restartPolling(immediately: true)
+    isActive = true
+    restartPolling(immediately: true, force: true)
     ensurePredictions()
   }
 
@@ -408,8 +409,10 @@ final class AppModel {
     await loadSchedule()
   }
 
-  /// Live polling pauses in the background when the user chose that.
+  /// Live polling pauses in the background when the user chose that. Only a real move between foreground and background
+  /// counts: the app is still in front, and must keep polling, while Control Center or a system alert has it "inactive".
   func setActive(_ active: Bool) {
+    guard active != isActive else { return }
     isActive = active
     restartPolling(immediately: active)
   }
@@ -1052,10 +1055,11 @@ final class AppModel {
 
   /// Starts the vehicle poll again. It carries on with its schedule (the next request waits for its time) unless
   /// `immediately`: the rider asked for fresh buses, or the app has just come back to the foreground.
-  private func restartPolling(immediately: Bool = false) {
+  private func restartPolling(immediately: Bool = false, force: Bool = false) {
     pollTask?.cancel()
     guard started else { return }
-    if !isActive && settings.values.pauseLiveInBackground { return }
+    // `force`: the rider pressed Refresh, so the app is in front whatever it believes about its state.
+    if !force && !isActive && settings.values.pauseLiveInBackground { return }
     if immediately {
       nextPollAt = .distantPast
       pollScheduled = false
