@@ -1298,7 +1298,12 @@ final class AppModel {
     let events = WatchEvaluator.evaluate(
       status: status, alerts: alerts, now: now, routes: Set(prefs.watchedRoutes), lines: Set(prefs.watchedLines), kinds: kinds,
       lateAfter: Double(prefs.watchLateMinutes) * 60, earlyAfter: Double(prefs.watchEarlyMinutes) * 60)
-    await watch.deliver(events, now: now) { [weak self] id in self?.route(id)?.shortName ?? id }
+    await watch.deliver(events, now: now) { [weak self] id in
+      guard let self, let route = self.route(id) else { return (id, "8E8E93") }
+      // The colour the route badge shows (the quiet palette greys map lines, badges keep the agency colour).
+      let palette = self.settings.values.routePalette
+      return (route.shortName, RouteColors.fillHex(for: route, palette: palette == .quiet ? .agency : palette, among: self.orderedRoutes))
+    }
   }
 
   /// One check from the background: loads what is needed, looks, and goes back to sleep.

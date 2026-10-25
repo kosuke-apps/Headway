@@ -34,20 +34,30 @@ final class WatchNotifier {
     }
   }
 
-  /// Announces the events that the rider has not been told about recently.
-  func deliver(_ events: [WatchEvent], now: Date, routeName: (String) -> String) async {
+  /// Announces the events that the rider has not been told about recently. `route` gives a route's name and its colour (as the
+  /// route badge shows it) for the picture that late and early notifications carry.
+  func deliver(_ events: [WatchEvent], now: Date, route: (String) -> (name: String, fillHex: String)) async {
     let fresh = ledger.fresh(events, now: now)
     save()
     guard !fresh.isEmpty else { return }
     let center = UNUserNotificationCenter.current()
     guard await center.notificationSettings().authorizationStatus == .authorized else { return }
     for event in fresh {
-      let text = Self.text(for: event, routeName: routeName(event.routeID))
+      let style = route(event.routeID)
+      let text = Self.text(for: event, routeName: style.name)
       let content = UNMutableNotificationContent()
       content.title = text.title
       content.body = text.body
       content.sound = .default
       content.threadIdentifier = "headway.watch.\(event.routeID)"
+      if event.kind != .alert {
+        let minutes = max(1, Int((Double(event.seconds) / 60).rounded())) * (event.kind == .late ? 1 : -1)
+        if let url = NotificationBadge.file(label: style.name + event.patternNumber, fillHex: style.fillHex, minutes: minutes),
+          let attachment = try? UNNotificationAttachment(identifier: "badge", url: url, options: nil)
+        {
+          content.attachments = [attachment]
+        }
+      }
       try? await center.add(UNNotificationRequest(identifier: "headway.watch.\(event.id)", content: content, trigger: nil))
     }
   }
@@ -57,24 +67,24 @@ final class WatchNotifier {
     save()
   }
 
-  /// The words of a notification, kept to what can be read at a glance and short enough to show whole: the title is a coloured
-  /// dot (red late, blue early), the route with its pattern number and the minutes ("🔴 D2 +10 min"); the body has the
-  /// destination on one line and the way and the number of buses on the next. No sentences. An alert keeps the city's own
-  /// headline.
+  /// The words of a notification, kept to what can be read at a glance and short enough to show whole: the title is the route
+  /// with its pattern number and how far it is from the timetable ("D2 · 13 min late"); the body has the destination on one
+  /// line and the way and the number of buses on the next. No sentences, no emoji (the colour is in the picture beside it).
+  /// An alert keeps the city's own headline.
   nonisolated static func text(for event: WatchEvent, routeName: String) -> (title: String, body: String) {
     let minutes = max(1, Int((Double(event.seconds) / 60).rounded()))
     switch event.kind {
     case .late, .early:
       let late = event.kind == .late
-      let time = late ? L10n.string("+\(minutes) min") : L10n.string("−\(minutes) min")
+      let phrase = late ? L10n.string("\(minutes) min late") : L10n.string("\(minutes) min early")
       var lines: [String] = []
       let destination = event.destination.prettyHeadsign
       if !destination.isEmpty { lines.append(destination) }
       var details: [String] = []
       if !event.directionName.isEmpty { details.append(AppModel.compassName(event.directionName)) }
-      if event.buses > 1 { details.append("🚌 ×\(event.buses)") }
+      if event.buses > 1 { details.append(L10n.string("\(event.buses) buses")) }
       if !details.isEmpty { lines.append(details.joined(separator: " · ")) }
-      return ("\(late ? "🔴" : "🔵") \(routeName + event.patternNumber) \(time)", lines.joined(separator: "\n"))
+      return ("\(routeName + event.patternNumber) · \(phrase)", lines.joined(separator: "\n"))
     case .alert:
       let detail = event.detail.trimmingCharacters(in: .whitespacesAndNewlines)
       let body = detail.isEmpty ? L10n.string("Route \(routeName)") : String(detail.prefix(160))

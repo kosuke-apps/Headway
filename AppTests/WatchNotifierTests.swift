@@ -11,10 +11,10 @@ import Testing
 
   @Test func lateAndEarlyMessagesAreAColourTheBusAndMinutes() {
     let late = WatchNotifier.text(for: event(.late, seconds: 600, buses: 2), routeName: "B")
-    #expect(late.title == "🔴 B +10 min")
-    #expect(late.body == "🚌 ×2")
+    #expect(late.title == "B · 10 min late")
+    #expect(late.body == "2 buses")
     let early = WatchNotifier.text(for: event(.early, seconds: 200, buses: 1), routeName: "B")
-    #expect(early.title == "🔵 B −3 min")
+    #expect(early.title == "B · 3 min early")
     #expect(early.body.isEmpty)
   }
 
@@ -22,13 +22,13 @@ import Testing
     let late = WatchEvent(
       kind: .late, routeID: "D", buses: 1, seconds: 600, alertID: "", headline: "", detail: "", headsign: "2-EPIC CAMPUS", directionName: "Eastbound")
     let text = WatchNotifier.text(for: late, routeName: "D")
-    #expect(text.title == "🔴 D2 +10 min")
+    #expect(text.title == "D2 · 10 min late")
     #expect(text.body == "Epic Campus\nEastbound")
     let early = WatchEvent(
       kind: .early, routeID: "D", buses: 3, seconds: 200, alertID: "", headline: "", detail: "", headsign: "1-UW HOSPITAL", directionName: "Westbound")
     let other = WatchNotifier.text(for: early, routeName: "D")
-    #expect(other.title == "🔵 D1 −3 min")
-    #expect(other.body == "UW Hospital\nWestbound · 🚌 ×3")
+    #expect(other.title == "D1 · 3 min early")
+    #expect(other.body == "UW Hospital\nWestbound · 3 buses")
     #expect(text.title != other.title)
   }
 

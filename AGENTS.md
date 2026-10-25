@@ -160,8 +160,9 @@ The author's general workspace rules (outside this repository) apply too; this f
     their destination, not "D is late" and "D is early"; a whole route (`watchedRoutes`) or single destinations
     (`watchedLines`, `WatchLine`) are watched; late and early after `watchLateMinutes` (3, 5, 10, 15) and `watchEarlyMinutes`
     (1, 2, 3, 5); alerts belong to a route and reach a rider watching any destination of it; each is announced once, and
-    late/early again after 45 min; the title is a coloured dot (red late, blue early), the route and the minutes ("🔴 D2 +10 min"); the body
-    has the destination, then the way and the number of buses, each on its own line; no sentences),
+    late/early again after 45 min; the title is the route and the minutes ("D2 · 10 min late"); the body has the destination, then the way and
+    the number of buses, each on its own line; no sentences and no emoji: the colour is in a small picture on the right
+    (`NotificationBadge`: route colour with its name, a red or blue band with ±minutes)),
     `App/Watch/WatchNotifier.swift` (local notifications, `BGAppRefreshTask` `dev.kosuke.headway.watch`). Best effort:
     iOS decides when a background refresh runs.
   - `App/Settings/`: `Preferences.swift` (all user options as one tolerant Codable value, decoding falls back to
