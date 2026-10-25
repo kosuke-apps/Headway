@@ -57,25 +57,20 @@ final class WatchNotifier {
     save()
   }
 
-  /// The words of a notification. A late or early bus says which destination and way it is on ("D2 to Epic Campus,
-  /// eastbound"), because one route can have a late bus on one and an early one on another.
+  /// The words of a notification, kept to what can be read at a glance: a coloured dot (red late, blue early), the bus (route,
+  /// pattern number and destination: "D2 Epic Campus") and how many minutes, with the way it runs and the number of buses
+  /// underneath. No sentences. An alert keeps the city's own headline.
   nonisolated static func text(for event: WatchEvent, routeName: String) -> (title: String, body: String) {
     let minutes = max(1, Int((Double(event.seconds) / 60).rounded()))
-    let way = event.directionName.isEmpty ? "" : AppModel.compassName(event.directionName) + " · "
-    let named = !event.destination.isEmpty
-    let label = routeName + event.patternNumber
-    let destination = event.destination.prettyHeadsign
     switch event.kind {
-    case .late:
-      return (
-        named ? L10n.string("Route \(label) to \(destination) is running late") : L10n.string("Route \(routeName) is running late"),
-        way + L10n.string("Up to \(minutes) min behind the timetable · \(event.buses) buses")
-      )
-    case .early:
-      return (
-        named ? L10n.string("Route \(label) to \(destination) is running early") : L10n.string("Route \(routeName) is running early"),
-        way + L10n.string("Up to \(minutes) min ahead of the timetable · \(event.buses) buses. Be at your stop a little early.")
-      )
+    case .late, .early:
+      let late = event.kind == .late
+      let bus = ([routeName + event.patternNumber, event.destination.prettyHeadsign].filter { !$0.isEmpty }).joined(separator: " ")
+      let time = late ? L10n.string("+\(minutes) min") : L10n.string("−\(minutes) min")
+      var details: [String] = []
+      if !event.directionName.isEmpty { details.append(AppModel.compassName(event.directionName)) }
+      if event.buses > 1 { details.append("🚌 ×\(event.buses)") }
+      return ("\(late ? "🔴" : "🔵") \(bus) \(time)", details.joined(separator: " · "))
     case .alert:
       let detail = event.detail.trimmingCharacters(in: .whitespacesAndNewlines)
       let body = detail.isEmpty ? L10n.string("Route \(routeName)") : String(detail.prefix(160))

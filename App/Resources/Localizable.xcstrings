@@ -3706,50 +3706,6 @@
         }
       }
     },
-    "Route %@ is running late": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ 路線が遅れています"
-          }
-        }
-      }
-    },
-    "Route %@ is running early": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ 路線が早く走っています"
-          }
-        }
-      }
-    },
-    "Up to %lld min behind the timetable · %lld buses": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "時刻表より最大 %1$lld分遅れ · %2$lld台"
-          }
-        }
-      }
-    },
-    "Up to %lld min ahead of the timetable · %lld buses. Be at your stop a little early.": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "時刻表より最大 %1$lld分早い · %2$lld台．バス停には少し早めに着いてください．"
-          }
-        }
-      }
-    },
     "%lld buses now": {
       "extractionState": "manual",
       "localizations": {
@@ -5267,28 +5223,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "市のフィードが遅れています．最後の更新は%lld秒前に届きましたが，その中の位置はすでに%lld秒前のものでした．更新ボタンを押しても市の公開は早まりません．アプリは問い合わせを続け，新しい位置が出たらすぐに表示します．"
-          }
-        }
-      }
-    },
-    "Route %@ to %@ is running late": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ 路線（%2$@ 行き）が遅れています"
-          }
-        }
-      }
-    },
-    "Route %@ to %@ is running early": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ 路線（%2$@ 行き）が早く走っています"
           }
         }
       }

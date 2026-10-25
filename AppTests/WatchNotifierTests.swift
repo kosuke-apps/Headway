@@ -9,25 +9,26 @@ import Testing
     WatchEvent(kind: kind, routeID: "A", buses: buses, seconds: seconds, alertID: "x", headline: headline, detail: detail)
   }
 
-  @Test func lateAndEarlyMessagesMentionTheRouteAndMinutes() {
+  @Test func lateAndEarlyMessagesAreAColourTheBusAndMinutes() {
     let late = WatchNotifier.text(for: event(.late, seconds: 600, buses: 2), routeName: "B")
-    #expect(late.title.contains("B"))
-    #expect(late.body.contains("10"))
+    #expect(late.title == "🔴 B +10 min")
+    #expect(late.body == "🚌 ×2")
     let early = WatchNotifier.text(for: event(.early, seconds: 200, buses: 1), routeName: "B")
-    #expect(early.title.contains("B"))
-    #expect(early.body.contains("3"))
+    #expect(early.title == "🔵 B −3 min")
+    #expect(early.body.isEmpty)
   }
 
   @Test func aLateOrEarlyBusSaysWhichDestinationAndWay() {
     let late = WatchEvent(
       kind: .late, routeID: "D", buses: 1, seconds: 600, alertID: "", headline: "", detail: "", headsign: "2-EPIC CAMPUS", directionName: "Eastbound")
     let text = WatchNotifier.text(for: late, routeName: "D")
-    #expect(text.title.contains("D2") && text.title.contains("Epic Campus"))
-    #expect(text.body.contains("Eastbound") && text.body.contains("10"))
+    #expect(text.title == "🔴 D2 Epic Campus +10 min")
+    #expect(text.body == "Eastbound")
     let early = WatchEvent(
-      kind: .early, routeID: "D", buses: 1, seconds: 200, alertID: "", headline: "", detail: "", headsign: "1-UW HOSPITAL", directionName: "Westbound")
+      kind: .early, routeID: "D", buses: 3, seconds: 200, alertID: "", headline: "", detail: "", headsign: "1-UW HOSPITAL", directionName: "Westbound")
     let other = WatchNotifier.text(for: early, routeName: "D")
-    #expect(other.title.contains("D1") && other.title.contains("UW Hospital"))
+    #expect(other.title == "🔵 D1 UW Hospital −3 min")
+    #expect(other.body == "Westbound · 🚌 ×3")
     #expect(text.title != other.title)
   }
 

@@ -146,10 +146,25 @@ probe show, and what they do not:
 - The recorder also stored fewer snapshots a day from 10-20 (1,100 to 1,700 against 2,280 before), which fits a server that
   answers late or not at all.
 
-A hole in the app was found while looking for the rest: the poll stopped whenever the app was "inactive" (Control Center,
-a system alert, a call banner) and Refresh did nothing in that state, so a phone that stayed inactive while in front would
-show positions getting older with no sign of failure. Now only the background pauses the poll, and Refresh always asks.
-Not proven to have caused the 168 s. Data saving is not involved: "Save mobile data" only slows the trip-prediction downloads.
+Holes in the app, found while looking for the rest (the phone had version 0.6.2 until 2026-10-24; both photos have a stop or
+a bus sheet open):
+
+- Version 0.6.2 and earlier awaited the alerts and the 156 KB trip updates inside the vehicle poll, with every beat while a
+  stop or bus was open, before asking for the next positions (`git show v0.6.2:App/AppModel.swift`, `pollLoop`). On mobile
+  data a slow download held the positions for as long as it took, and Refresh restarted the same loop, which waited for the
+  same download again. That fits every symptom (mobile data only, 100 s and more, Refresh does nothing, only with a sheet
+  open) and was fixed in 0.6.6 (`startSlowData`: the large downloads run beside the poll). It is the most likely cause of
+  the 168 s; the recordings cannot show it, because they are not made over the rider's connection.
+- The poll stopped whenever the app was "inactive" (Control Center, a system alert, a call banner) and Refresh did nothing in
+  that state. Now only the background pauses it, and Refresh always asks.
+- Opening a sheet or changing the mode restarted the poll, which cancels the request under way: no longer.
+- A feed stamped before the one on screen was taken as news and moved the buses back: it is ignored now.
+- A watchdog starts the poll again when nothing has answered for 30 s (more with a slower Refresh setting) while the app is in
+  front.
+- Markers stopped gliding when the feed was behind: a report 60 to 90 s old was moved on to the 50 s mark at once and then
+  stood still until the next feed. The limit now leaves 25 s of movement after the report arrives (`extrapolationLimit`).
+
+Data saving is not involved: "Save mobile data" only slows the trip-prediction downloads.
 
 What the app does about the city's feed: the card that opens from the status line tells a late feed ("the city's feed is
 running behind ...") from a phone that has had no answer ("no answer from the city for N s"); the veil on a bus that has

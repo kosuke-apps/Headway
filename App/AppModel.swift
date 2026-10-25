@@ -137,7 +137,6 @@ final class AppModel {
       if mode != .map, sheet != nil { minimizeSheet() }
       refreshStatus()
       if mode != .map { ensurePredictions() }  // predictions are needed in every mode but the plain map
-      restartPolling()
     }
   }
   /// The side menu. A sheet is drawn above everything else, so opening the menu puts the sheet away first (a journey
@@ -179,14 +178,16 @@ final class AppModel {
   @ObservationIgnored private var feedPeriod: TimeInterval = 30
   @ObservationIgnored private var publishLag = PublishLag()
   @ObservationIgnored private var slowDataBusy = false
-  // Where the vehicle poll is in its cycle. Kept here, not in the loop, so that restarting the loop (a sheet opening, a mode
-  // change) carries on with the same schedule instead of asking at once and then retrying every two seconds.
+  // Where the vehicle poll is in its cycle. Kept here, not in the loop, so that restarting the loop (the app coming back to the
+  // front, Refresh, the watchdog) carries on with the same schedule instead of asking at once and then retrying every two seconds.
   @ObservationIgnored private var nextPollAt = Date.distantPast
   @ObservationIgnored private var pollUnchanged = 0
   @ObservationIgnored private var pollLastChange = Date.distantPast
   @ObservationIgnored private var pollScheduled = false  // the next request is the one timed for the next feed
   @ObservationIgnored private var fetchingPredictions = false
   @ObservationIgnored private var periods: [TimeInterval] = []
+  @ObservationIgnored private var watchdogSince = Date()
+  @ObservationIgnored private var lastWatchdogRestart = Date.distantPast
 
   static let scheduleURL = URL(string: "https://transitdata.cityofmadison.com/GTFS/mmt_gtfs.zip")!
 
@@ -386,7 +387,9 @@ final class AppModel {
     guard !started else { return }
     started = true
     NetworkStatus.shared.start()
+    watchdogSince = Date()
     restartPolling(immediately: true)
+    startWatchdog()
     Task { await loadPunctuality() }
     // The saved copy of the map data shows every route right away; the timetable is parsed behind it.
     let began = CFAbsoluteTimeGetCurrent()
@@ -842,7 +845,8 @@ final class AppModel {
     if sheet == nil, focus.fromBus, dockedVehicleID == nil { focus = MapFocus() }
     refreshArrivals()
     if sheet?.isDetail == true { ensurePredictions() }  // fresh predictions for what has just opened, then at the rider's pace
-    restartPolling()  // trip predictions are only fetched while a stop or bus is open
+    // The vehicle poll is not restarted here: a restart cancels the request under way, and the poll reads what is open (a
+    // stop, a bus) by itself on every beat.
   }
 
   // MARK: Timetable
@@ -1067,6 +1071,30 @@ final class AppModel {
     pollTask = Task { [weak self] in await self?.pollLoop() }
   }
 
+  /// Whatever stops the vehicle poll (a request that never comes back, a loop that ended, a state nobody thought of), the rider
+  /// must not be left with buses getting older: while the app is in front and nothing has answered for much longer than a
+  /// beat, the poll is started again and asks at once.
+  private func startWatchdog() {
+    Task { [weak self] in
+      while !Task.isCancelled {
+        try? await Task.sleep(for: .seconds(5))
+        guard let self else { return }
+        self.checkPoll()
+      }
+    }
+  }
+
+  private func checkPoll() {
+    guard started, isActive || !settings.values.pauseLiveInBackground else { return }
+    let now = Date()
+    let patience = max(30, Double(settings.values.updateInterval) * 2 + 10)
+    let lastAnswer = max(lastLiveUpdate ?? .distantPast, watchdogSince)
+    guard now.timeIntervalSince(lastAnswer) > patience, now.timeIntervalSince(lastWatchdogRestart) > patience else { return }
+    lastWatchdogRestart = now
+    pollLog.error("no answer for \(Int(now.timeIntervalSince(lastAnswer))) s: the poll is started again")
+    restartPolling(immediately: true, force: true)
+  }
+
   /// The city rebuilds its feed on a fixed beat (30 s, measured) and each bus reports on the same beat, so asking more
   /// often only returns the same data. After a new feed is seen, the next request waits until just before the next
   /// beat; if the feed has not changed yet, it tries again every 2 seconds. This gives the freshest positions with
@@ -1082,7 +1110,10 @@ final class AppModel {
       var delay = 10.0
       do {
         let snapshot = try await client.fetch(.vehicles)
-        let isNew = vehicles.isEmpty || snapshot.feedTimestamp == nil || snapshot.feedTimestamp != feedTimestamp
+        // A feed stamped before the one on screen (a slow server behind the same address) is not news: it would move the
+        // buses back.
+        let older = snapshot.feedTimestamp.flatMap { new in feedTimestamp.map { new < $0 } } ?? false
+        let isNew = !older && (vehicles.isEmpty || snapshot.feedTimestamp == nil || snapshot.feedTimestamp != feedTimestamp)
         if isNew {
           if let old = feedTimestamp, let new = snapshot.feedTimestamp, new > old { notePeriod(new.timeIntervalSince(old)) }
           if let stamp = snapshot.feedTimestamp, let serverNow = snapshot.serverDate {

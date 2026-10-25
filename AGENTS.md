@@ -160,7 +160,8 @@ The author's general workspace rules (outside this repository) apply too; this f
     their destination, not "D is late" and "D is early"; a whole route (`watchedRoutes`) or single destinations
     (`watchedLines`, `WatchLine`) are watched; late and early after `watchLateMinutes` (3, 5, 10, 15) and `watchEarlyMinutes`
     (1, 2, 3, 5); alerts belong to a route and reach a rider watching any destination of it; each is announced once, and
-    late/early again after 45 min),
+    late/early again after 45 min; the message is a coloured dot (red late, blue early), the bus and the minutes, with the way
+    and the number of buses under it, no sentences),
     `App/Watch/WatchNotifier.swift` (local notifications, `BGAppRefreshTask` `dev.kosuke.headway.watch`). Best effort:
     iOS decides when a background refresh runs.
   - `App/Settings/`: `Preferences.swift` (all user options as one tolerant Codable value, decoding falls back to
@@ -285,10 +286,11 @@ The author's general workspace rules (outside this repository) apply too; this f
   the board therefore shows the timetable for the rest. Whether predictions are biased is unverified (see
   `docs/data-sources.md`).
 - The city's feed has stalled and lagged since about 2026-10-20 (a stamp standing still for 90 s, positions 60 to 90 s behind
-  it). The rider's "168 s old" with Refresh doing nothing is not explained by it (see `docs/data-sources.md`, "When positions
-  are a minute or two old"): the poll used to stop while the app was merely "inactive" and Refresh then did nothing; now only
-  the background pauses it and Refresh always asks. The live card says whether the city's feed or the phone's connection is
-  behind when positions are over a minute old.
+  it), but that does not explain a rider's "168 s old" with Refresh doing nothing on mobile data. The likely cause was in
+  the app: up to 0.6.2 the vehicle poll waited for the trip-update download. Also fixed: the poll stopped while the app was
+  merely "inactive", sheet and mode changes cancelled the request under way, an older feed could replace a newer one, and a
+  watchdog now restarts a poll that has not been answered for 30 s. See `docs/data-sources.md`, "When positions are a minute
+  or two old". The live card says whether the city's feed or the phone's connection is behind.
 - Live latency (measured on 2026-10-03, see `docs/data-sources.md`): a bus reports every 30 s, the feed is rebuilt every
   30 s, positions are about 25 s old on arrival. The app times its requests from the server's `Date` header, dead-reckons
   buses along their route at their last speed (up to 50 s), and veils buses silent for over 75 s (45 s beyond the fleet's median age when the whole feed is behind,

@@ -24,13 +24,18 @@ final class BusAnimator {
     var vehicle: VehicleSample
     var reportAge: TimeInterval  // age of the report when it was received
     var received: CFTimeInterval  // media time at which it was received
-    var path: [Coordinate]?  // route ahead of the report, long enough for `maxExtrapolation` seconds
+    var limit: TimeInterval  // how far from the report's own time the marker may be moved on (`extrapolationLimit`)
+    var path: [Coordinate]?  // route ahead of the report, long enough for `limit` seconds
     var speed: Double
     var shownFrom: CLLocationCoordinate2D?  // where the marker was drawn when this report arrived
   }
 
   /// Longest time a bus is moved forward without news. After that the marker waits for the next report.
   static let maxExtrapolation: TimeInterval = 50
+  /// A report that arrives already old (the city's feed was 60 to 90 seconds behind on many mornings in October 2026) used to
+  /// be moved on to the 50 s mark at once and then stand still until the next feed: the buses did not glide at all. The
+  /// limit now keeps room for 25 seconds of movement after the report arrives, however old it was.
+  static func extrapolationLimit(reportAge: TimeInterval) -> TimeInterval { max(maxExtrapolation, reportAge + 25) }
   private static let blendDuration: CFTimeInterval = 2
   /// A marker that would have to move farther than this to reach the new estimate jumps instead of gliding.
   private let snapDistance: CLLocationDistance = 800
@@ -50,7 +55,8 @@ final class BusAnimator {
       // The report's true age, not capped: how far a marker is moved is capped below, but the veil and the status line need
       // the age as it is (the city's feed was 60 to 90 seconds behind for whole mornings in October 2026).
       let age = vehicle.timestamp.map { max(0, wall.timeIntervalSince($0)) } ?? 0
-      let path = estimate ? schedule?.pathAhead(of: vehicle, seconds: Self.maxExtrapolation) : nil
+      let limit = Self.extrapolationLimit(reportAge: age)
+      let path = estimate ? schedule?.pathAhead(of: vehicle, seconds: limit) : nil
       var from: CLLocationCoordinate2D?
       if smooth, let current = shown[vehicle.id] {
         let target = CLLocationCoordinate2D(latitude: vehicle.latitude, longitude: vehicle.longitude)
@@ -59,7 +65,7 @@ final class BusAnimator {
         if distance <= snapDistance { from = current }
       }
       next[vehicle.id] = Track(
-        vehicle: vehicle, reportAge: age, received: now, path: path, speed: vehicle.speed ?? 0, shownFrom: from)
+        vehicle: vehicle, reportAge: age, received: now, limit: limit, path: path, speed: vehicle.speed ?? 0, shownFrom: from)
     }
     tracks = next
   }
@@ -75,11 +81,11 @@ final class BusAnimator {
       var estimated = false
       if let path = track.path {
         // The report was valid `reportAge` seconds before it arrived, so the bus has covered that distance already.
-        let elapsed = min(Self.maxExtrapolation, age)
+        let elapsed = min(track.limit, age)
         let point = Geometry.point(on: path, at: track.speed * elapsed)
         target = CLLocationCoordinate2D(latitude: point.latitude, longitude: point.longitude)
         estimated = track.speed > 0 && elapsed > 0
-        if age < Self.maxExtrapolation { finished = false }
+        if age < track.limit { finished = false }
       }
       var drawn = target
       if let from = track.shownFrom, sinceReceived < Self.blendDuration {
