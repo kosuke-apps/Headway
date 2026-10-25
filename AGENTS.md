@@ -88,7 +88,12 @@ The author's general workspace rules (outside this repository) apply too; this f
     pull-down to go back to now and refresh (`AppModel.boardEarlier`, `boardWindow`, `resetBoard`; opening another stop
     resets them; "Back to now" also scrolls to the top). The row limit grows with the window (40 per three hours,
     `boardLimit`): with a fixed 40 the second tap on "Later departures" added nothing at a busy stop. Earlier rows carry only
-    what the timetable and the current feeds know.
+    what the timetable and the current feeds know. Every row opens something: a row with a bus opens the bus, a row with no
+    bus opens the trip's own timetable (`TripSheet`, `ActiveSheet.trip`, `AppModel.selectTrip`: all its stops with their
+    timetable times, the trip's line on the map; if a bus has turned up on it the bus's sheet opens instead). A bus's sheet
+    (`BusSheet`) lists every stop to the terminal (`Arrivals.tripStops`), the ones it has passed greyed out (by the bus's
+    `currentStopSequence`, or by time when it does not say) and starts scrolled to the last one passed (`TripStops.swift`).
+    The trip sheet does not go into the dock (a timetable has no marker on the map to wait for).
   - Live bus positions are never throttled: not by "Save mobile data", not by the connection. Only the rider's own "Refresh"
     setting (automatic, 30 s, 1 min) changes the vehicle poll, and the larger downloads (`startSlowData`: alerts, trip
     predictions, watched routes) run beside it, one at a time, so that a slow connection cannot delay the positions.
@@ -150,8 +155,12 @@ The author's general workspace rules (outside this repository) apply too; this f
     stops ringed (`StopCodes.find` reads "Stop 7253" out of the alert text, because alerts carry no stop ids) or the late
     and early buses of the delay rows. `Preferences.focusStyle` hides the rest or fades it. Arrows (`route-arrows`,
     `journey-arrows`) show the way buses run; a journey on the map hides everything but itself and the buses of its trips.
-  - Notifications: `Sources/HeadwayCore/Watch.swift` (`WatchEvaluator`, `WatchLedger`: late = more than 5 min behind,
-    early = more than 2 min ahead, alerts for watched routes, each announced once; late/early again after 45 min),
+  - Notifications: `Sources/HeadwayCore/Watch.swift` (`WatchEvaluator`, `WatchLedger`: late and early are judged per route,
+    destination and way (`BusDelay.headsign` / `directionName`), so a late D2 and an early D1 are two messages that name
+    their destination, not "D is late" and "D is early"; a whole route (`watchedRoutes`) or single destinations
+    (`watchedLines`, `WatchLine`) are watched; late and early after `watchLateMinutes` (3, 5, 10, 15) and `watchEarlyMinutes`
+    (1, 2, 3, 5); alerts belong to a route and reach a rider watching any destination of it; each is announced once, and
+    late/early again after 45 min),
     `App/Watch/WatchNotifier.swift` (local notifications, `BGAppRefreshTask` `dev.kosuke.headway.watch`). Best effort:
     iOS decides when a background refresh runs.
   - `App/Settings/`: `Preferences.swift` (all user options as one tolerant Codable value, decoding falls back to
@@ -275,9 +284,13 @@ The author's general workspace rules (outside this repository) apply too; this f
 - Predictions come from the city's trip-updates feed, which has no delay field and covers only trips with a bus;
   the board therefore shows the timetable for the rest. Whether predictions are biased is unverified (see
   `docs/data-sources.md`).
+- The city's feed has stalled and lagged since about 2026-10-20 (a stamp standing still for 90 s, positions 60 to 90 s behind
+  it; the status line said "168 s old" and Refresh could not help): see `docs/data-sources.md`, "When positions are a minute
+  or two old". The live card says so when positions are over a minute old.
 - Live latency (measured on 2026-10-03, see `docs/data-sources.md`): a bus reports every 30 s, the feed is rebuilt every
   30 s, positions are about 25 s old on arrival. The app times its requests from the server's `Date` header, dead-reckons
-  buses along their route at their last speed (up to 50 s), and veils buses silent for over 75 s. Predictions are
+  buses along their route at their last speed (up to 50 s), and veils buses silent for over 75 s (45 s beyond the fleet's median age when the whole feed is behind,
+  `MapLayers.staleLimit`). Predictions are
   accurate to about +/-40 s (median) within 5 minutes and barely better than the timetable beyond 20 minutes.
 - Punctuality statistics need weeks of recordings to be reliable; the app says how many days they cover and shows
   nothing for a route and time of week with too few observations.

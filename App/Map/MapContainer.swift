@@ -48,7 +48,7 @@ struct MapContainer: UIViewRepresentable {
         model.routeChoices = []
         if model.focus.isActive, model.mapJourney == nil { model.clearFocus() }
         switch model.sheet {
-        case .stop?, .bus?: model.clearSelection()
+        case .stop?, .bus?, .trip?: model.clearSelection()
         default: break
         }
       }

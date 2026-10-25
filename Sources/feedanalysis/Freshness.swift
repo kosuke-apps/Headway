@@ -81,6 +81,16 @@ struct PositionAges {
     var byHour: [Int: Row] = [:]
     var unreadable = 0
     var all: [(Date, Double)] = []
+    // What a phone would have shown: the age of the median position at the moment of the fetch (the feed's own lag and the
+    // time the feed had been standing still), and the gaps between one feed stamp and the next.
+    var totals: [Double] = []
+    var totalsByHour: [Int: [Double]] = [:]
+    var totalsByDay: [String: [Double]] = [:]
+    let dayKey = DateFormatter()
+    dayKey.timeZone = timeZone
+    dayKey.dateFormat = "MM-dd"
+    var headerGaps: [Double] = []
+    var lastHeader: Date?
     var worst: [(Date, Double, Double, Int)] = []  // when, median age, feed age at fetch, buses
     var calendar = Calendar(identifier: .gregorian)
     calendar.timeZone = timeZone
@@ -91,6 +101,12 @@ struct PositionAges {
       let ages = snapshot.vehicles.compactMap { $0.timestamp.map { header.timeIntervalSince($0) } }.sorted()
       guard ages.count >= 10 else { continue }
       let median = ages[ages.count / 2]
+      let totalAge = file.recordedAt.timeIntervalSince(header) + median
+      totals.append(totalAge)
+      totalsByHour[calendar.component(.hour, from: file.recordedAt), default: []].append(totalAge)
+      totalsByDay[dayKey.string(from: file.recordedAt), default: []].append(totalAge)
+      if let last = lastHeader, header > last { headerGaps.append(header.timeIntervalSince(last)) }
+      lastHeader = max(lastHeader ?? header, header)
       let weekday = calendar.component(.weekday, from: file.recordedAt)
       _ = weekday
       byHour[calendar.component(.hour, from: file.recordedAt), default: Row()].medians.append(median)
@@ -123,6 +139,23 @@ struct PositionAges {
     formatter.timeZone = timeZone
     formatter.dateFormat = "MM-dd HH:mm:ss"
     for item in worst.prefix(400) { out += "| \(formatter.string(from: item.0)) | \(Int(item.1)) | \(Int(item.2)) | \(item.3) |\n" }
-    return out + perDay
+    var phone = "\n## What a phone would have shown\n\nAge of the median bus position at the moment of the fetch (time since the feed's stamp plus the position's age inside it), and the time between one feed stamp and the next, seen in recordings about every 40 s (a gap is only seen when both feeds were recorded, so the real stalls are at least these).\n\n"
+    phone += "| hour | snapshots | median s | p90 s | share over 90 s | share over 120 s | share over 168 s |\n|---|---:|---:|---:|---:|---:|---:|\n"
+    for hour in totalsByHour.keys.sorted() {
+      let m = totalsByHour[hour]!
+      func share(_ limit: Double) -> String { String(format: "%.1f%%", Double(m.filter { $0 > limit }.count) / Double(m.count) * 100) }
+      phone += "| \(hour) | \(m.count) | \(q(m, 0.5)) | \(q(m, 0.9)) | \(share(90)) | \(share(120)) | \(share(168)) |\n"
+    }
+    phone += "\n| day | snapshots | median s | p90 s | share over 90 s | share over 120 s | share over 168 s |\n|---|---:|---:|---:|---:|---:|---:|\n"
+    for day in totalsByDay.keys.sorted() {
+      let m = totalsByDay[day]!
+      func share(_ limit: Double) -> String { String(format: "%.1f%%", Double(m.filter { $0 > limit }.count) / Double(m.count) * 100) }
+      phone += "| \(day) | \(m.count) | \(q(m, 0.5)) | \(q(m, 0.9)) | \(share(90)) | \(share(120)) | \(share(168)) |\n"
+    }
+    if !headerGaps.isEmpty {
+      func gapShare(_ limit: Double) -> String { String(format: "%.1f%%", Double(headerGaps.filter { $0 > limit }.count) / Double(headerGaps.count) * 100) }
+      phone += "\nFeed stamps seen: \(headerGaps.count) steps; median step \(q(headerGaps, 0.5)) s, p90 \(q(headerGaps, 0.9)) s, p99 \(q(headerGaps, 0.99)) s, longest \(q(headerGaps, 1)) s. Steps over 60 s: \(gapShare(60)), over 90 s: \(gapShare(90)), over 120 s: \(gapShare(120)).\n"
+    }
+    return out + perDay + phone
   }
 }

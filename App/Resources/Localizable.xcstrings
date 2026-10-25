@@ -4919,17 +4919,6 @@
         }
       }
     },
-    "The city's feed is rebuilt about every 30 to 40 seconds and each bus reports about every 30 seconds (usually 25 to 35, sometimes up to a minute), so a position is about 25 seconds old when you see it. Automatic refresh asks right after each rebuild. Estimating moves each bus along its route at its last speed, and a bus drawn that way has a dashed ring; a veiled bus has not reported for over a minute. Bus positions are never slowed by a data setting.": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "市のフィードは約30〜40秒ごとに作り直され，各バスも約30秒ごと（ふつうは25〜35秒，長いときは1分ほど）に位置を報告するため，画面に出る位置は約25秒前のものです．「自動」は，作り直された直後に取得します．「推定」は，バスを最後の速度で経路に沿って動かします．そのように描かれたバスの外枠は点線です．薄く表示されたバスは1分以上報告がありません．バスの位置は，データの設定では遅くなりません．"
-          }
-        }
-      }
-    },
     "Mobile data settings": {
       "extractionState": "manual",
       "localizations": {
@@ -5179,6 +5168,244 @@
           "stringUnit": {
             "state": "translated",
             "value": "Wi-Fi %@ · モバイル %@"
+          }
+        }
+      }
+    },
+    "Stops": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "停留所"
+          }
+        }
+      }
+    },
+    "No stops are known for this trip.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この便の停留所は不明です．"
+          }
+        }
+      }
+    },
+    "No stops are known for this bus.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このバスの停留所は不明です．"
+          }
+        }
+      }
+    },
+    "This trip is not in the timetable": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この便は時刻表にありません"
+          }
+        }
+      }
+    },
+    "Timetable only": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "時刻表のみ"
+          }
+        }
+      }
+    },
+    "Timetable only · no position yet": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "時刻表のみ · 位置はまだありません"
+          }
+        }
+      }
+    },
+    "No bus seen yet · due %lld min ago": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "バスはまだ確認できていません · 予定は%lld分前"
+          }
+        }
+      }
+    },
+    "The bus has passed this stop": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "バスはこの停留所を通過しました"
+          }
+        }
+      }
+    },
+    "The city's feed is running behind. Its last update came %lld s ago, and the positions in it were already %lld s old. Refreshing cannot make the city publish sooner; the app keeps asking and shows new positions as soon as they appear.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "市のフィードが遅れています．最後の更新は%lld秒前に届きましたが，その中の位置はすでに%lld秒前のものでした．更新ボタンを押しても市の公開は早まりません．アプリは問い合わせを続け，新しい位置が出たらすぐに表示します．"
+          }
+        }
+      }
+    },
+    "Route %@ to %@ is running late": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ 路線（%2$@ 行き）が遅れています"
+          }
+        }
+      }
+    },
+    "Route %@ to %@ is running early": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ 路線（%2$@ 行き）が早く走っています"
+          }
+        }
+      }
+    },
+    "Late after": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "遅れの基準"
+          }
+        }
+      }
+    },
+    "Early after": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "早着の基準"
+          }
+        }
+      }
+    },
+    "%lld destinations": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 件の行き先"
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld destination"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld destinations"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Destinations": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "行き先"
+          }
+        }
+      }
+    },
+    "The whole route is watched, so every destination is.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "路線全体を監視しているので，すべての行き先が対象です．"
+          }
+        }
+      }
+    },
+    "Choose the destinations you ride. A late bus on another one stays quiet.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "乗る行き先を選んでください．ほかの行き先のバスが遅れても通知しません．"
+          }
+        }
+      }
+    },
+    "You are told when a bus on one of these routes is late or early, or when the city posts a detour or alert for it. Open a route to watch only some of its destinations.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "これらの路線のバスが遅れたり早く走ったとき，または市が迂回や警報を出したときにお知らせします．路線を開くと，一部の行き先だけを監視できます．"
+          }
+        }
+      }
+    },
+    "Headway looks at your routes whenever its live data updates while it is open, and now and then in the background when iOS allows it. There is no server behind this, so a notification can come late, or not at all, if iOS does not wake the app. Late means more than %lld minutes behind the timetable, early more than %lld minutes ahead. Each destination and direction of a route (D2 to Epic Campus, D1 to the hospital) is judged and told on its own.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Headway は，アプリを開いている間はライブデータが更新されるたびに，バックグラウンドでは iOS が許可したときに時々，選んだ路線を確認します．サーバーを使わないため，iOS がアプリを起動しない場合は通知が遅れたり届かなかったりします．「遅れ」は時刻表より%1$lld分超，「早い」は%2$lld分超です．路線の行き先と方向（D2 のエピック・キャンパス行き，D1 の病院行きなど）ごとに判定して通知します．"
+          }
+        }
+      }
+    },
+    "The city's feed is rebuilt about every 30 to 40 seconds and each bus reports about every 30 seconds (usually 25 to 35, sometimes up to a minute), so a position is about 25 seconds old when you see it. Automatic refresh asks right after each rebuild. Estimating moves each bus along its route at its last speed, and a bus drawn that way has a dashed ring; a veiled bus has not reported for much longer than the others. Bus positions are never slowed by a data setting.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "市のフィードは約30〜40秒ごとに作り直され，各バスも約30秒ごと（ふつうは25〜35秒，長いときは1分ほど）に位置を報告するため，画面に出る位置は約25秒前のものです．「自動」は，作り直された直後に取得します．「推定」は，バスを最後の速度で経路に沿って動かします．そのように描かれたバスの外枠は点線です．薄く表示されたバスは，ほかのバスよりずっと長く報告がありません．バスの位置は，データの設定では遅くなりません．"
           }
         }
       }

@@ -47,7 +47,9 @@ final class BusAnimator {
         next[vehicle.id] = existing  // the same report again: nothing to change
         continue
       }
-      let age = vehicle.timestamp.map { min(max(0, wall.timeIntervalSince($0)), Self.maxExtrapolation) } ?? 0
+      // The report's true age, not capped: how far a marker is moved is capped below, but the veil and the status line need
+      // the age as it is (the city's feed was 60 to 90 seconds behind for whole mornings in October 2026).
+      let age = vehicle.timestamp.map { max(0, wall.timeIntervalSince($0)) } ?? 0
       let path = estimate ? schedule?.pathAhead(of: vehicle, seconds: Self.maxExtrapolation) : nil
       var from: CLLocationCoordinate2D?
       if smooth, let current = shown[vehicle.id] {

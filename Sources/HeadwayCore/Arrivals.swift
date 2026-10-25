@@ -116,23 +116,31 @@ public enum Arrivals {
   }
 }
 
-/// One remaining stop of a trip, for the "where is this bus going next" list.
+/// One stop of a trip, for the "where is this bus going" list and for the timetable of a trip no bus is on yet.
 public struct TripStopEta: Sendable, Identifiable, Hashable {
   public var id: Int { sequence }
   public let sequence: Int
   public let stopID: String
   public let scheduled: Date
   public let predicted: Date?
+  /// True when the bus is past this stop (or, with no bus to ask, when its time has passed): the list greys it out.
+  public let passed: Bool
 
   public var expected: Date { predicted ?? scheduled }
 }
 
 extension Arrivals {
-  /// The stops `tripID` has yet to serve, with predicted times when the feed provides them.
-  public static func remainingStops(
-    schedule: Schedule, tripID: String, now: Date, prediction: TripPrediction?
+  /// Every stop of `tripID` from first to last, with predicted times where the feed gives them. `currentSequence` is the stop
+  /// the bus reports it is at or heading for: the stops before it are `passed`. Without it (no bus, or one that does not say)
+  /// a stop has been passed once its expected time is more than 30 seconds ago.
+  ///
+  /// `serviceDate` is the day the trip runs on, when the caller knows it (a stop board row does); otherwise it is the one
+  /// nearest to `now`.
+  public static func tripStops(
+    schedule: Schedule, tripID: String, now: Date, prediction: TripPrediction?, currentSequence: Int? = nil,
+    serviceDate: ServiceDate? = nil
   ) -> [TripStopEta] {
-    guard let times = schedule.stopTimes[tripID], let date = schedule.serviceDate(of: tripID, near: now) else { return [] }
+    guard let times = schedule.stopTimes[tripID], let date = serviceDate ?? schedule.serviceDate(of: tripID, near: now) else { return [] }
     let midnight = date.midnight(in: schedule.timeZone)
     var predictedBySequence: [Int: Date] = [:]
     var predictedByStop: [String: Date] = [:]
@@ -140,13 +148,18 @@ extension Arrivals {
       guard let time = stop.arrival ?? stop.departure else { continue }
       if let sequence = stop.sequence { predictedBySequence[sequence] = time } else { predictedByStop[stop.stopID] = time }
     }
-    var result: [TripStopEta] = []
-    for time in times {
+    return times.map { time in
       let scheduled = midnight.addingTimeInterval(TimeInterval(time.arrival))
       let predicted = predictedBySequence[time.sequence] ?? predictedByStop[time.stopID]
-      let eta = TripStopEta(sequence: time.sequence, stopID: time.stopID, scheduled: scheduled, predicted: predicted)
-      if eta.expected >= now.addingTimeInterval(-30) { result.append(eta) }
+      let passed = currentSequence.map { time.sequence < $0 } ?? ((predicted ?? scheduled) < now.addingTimeInterval(-30))
+      return TripStopEta(sequence: time.sequence, stopID: time.stopID, scheduled: scheduled, predicted: predicted, passed: passed)
     }
-    return result
+  }
+
+  /// The stops `tripID` has yet to serve, with predicted times when the feed provides them.
+  public static func remainingStops(
+    schedule: Schedule, tripID: String, now: Date, prediction: TripPrediction?
+  ) -> [TripStopEta] {
+    tripStops(schedule: schedule, tripID: tripID, now: now, prediction: prediction).filter { !$0.passed }
   }
 }

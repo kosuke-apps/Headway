@@ -57,19 +57,24 @@ final class WatchNotifier {
     save()
   }
 
-  /// The words of a notification.
+  /// The words of a notification. A late or early bus says which destination and way it is on ("D2 to Epic Campus,
+  /// eastbound"), because one route can have a late bus on one and an early one on another.
   nonisolated static func text(for event: WatchEvent, routeName: String) -> (title: String, body: String) {
     let minutes = max(1, Int((Double(event.seconds) / 60).rounded()))
+    let way = event.directionName.isEmpty ? "" : AppModel.compassName(event.directionName) + " · "
+    let named = !event.destination.isEmpty
+    let label = routeName + event.patternNumber
+    let destination = event.destination.prettyHeadsign
     switch event.kind {
     case .late:
       return (
-        L10n.string("Route \(routeName) is running late"),
-        L10n.string("Up to \(minutes) min behind the timetable · \(event.buses) buses")
+        named ? L10n.string("Route \(label) to \(destination) is running late") : L10n.string("Route \(routeName) is running late"),
+        way + L10n.string("Up to \(minutes) min behind the timetable · \(event.buses) buses")
       )
     case .early:
       return (
-        L10n.string("Route \(routeName) is running early"),
-        L10n.string("Up to \(minutes) min ahead of the timetable · \(event.buses) buses. Be at your stop a little early.")
+        named ? L10n.string("Route \(label) to \(destination) is running early") : L10n.string("Route \(routeName) is running early"),
+        way + L10n.string("Up to \(minutes) min ahead of the timetable · \(event.buses) buses. Be at your stop a little early.")
       )
     case .alert:
       let detail = event.detail.trimmingCharacters(in: .whitespacesAndNewlines)

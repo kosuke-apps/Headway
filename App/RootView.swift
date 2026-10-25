@@ -58,6 +58,8 @@ struct RootView: View {
         StopSheet(stopID: id).modifier(DetailSheetStyle(height: Self.detailHeight))
       case .bus(let id):
         BusSheet(vehicleID: id).modifier(DetailSheetStyle(height: Self.detailHeight))
+      case .trip(let id, let date):
+        TripSheet(tripID: id, date: date).modifier(DetailSheetStyle(height: Self.detailHeight))
       case .journey:
         // Swiped down, the journey goes into the dock at the bottom of the map.
         JourneySheet().modifier(DetailSheetStyle(height: Self.detailHeight))
@@ -89,7 +91,7 @@ struct RootView: View {
     .onChange(of: model.settings.values.language) { _, language in LanguageState.shared.apply(language) }
     .onChange(of: scenePhase) { _, phase in
       model.setActive(phase == .active)
-      if phase == .background { WatchBackground.schedule(enabled: model.settings.values.watchEnabled && !model.settings.values.watchedRoutes.isEmpty) }
+      if phase == .background { WatchBackground.schedule(enabled: model.settings.values.watchEnabled && model.settings.values.isWatchingAnything) }
     }
   }
 

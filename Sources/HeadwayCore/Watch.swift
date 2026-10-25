@@ -10,6 +10,18 @@ public enum WatchKind: String, Sendable, Codable, CaseIterable {
   case alert
 }
 
+/// One destination of a route, watched on its own: "D2 to Epic Campus" without "D1 to the hospital". The headsign is the
+/// feed's ("2-EPIC CAMPUS"), which is also what tells the two directions of a route apart.
+public struct WatchLine: Sendable, Codable, Hashable {
+  public let routeID: String
+  public let headsign: String
+
+  public init(routeID: String, headsign: String) {
+    self.routeID = routeID
+    self.headsign = headsign
+  }
+}
+
 /// Something worth a notification.
 public struct WatchEvent: Sendable, Hashable, Identifiable {
   public let kind: WatchKind
@@ -22,8 +34,15 @@ public struct WatchEvent: Sendable, Hashable, Identifiable {
   public let alertID: String
   public let headline: String
   public let detail: String
+  /// Late and early: which destination ("2-EPIC CAMPUS") and way ("Eastbound") of the route the buses are on, so that a
+  /// late D2 and an early D1 are two messages that say which is which. Empty when the feed does not say.
+  public let headsign: String
+  public let directionName: String
 
-  public init(kind: WatchKind, routeID: String, buses: Int, seconds: Int, alertID: String, headline: String, detail: String) {
+  public init(
+    kind: WatchKind, routeID: String, buses: Int, seconds: Int, alertID: String, headline: String, detail: String,
+    headsign: String = "", directionName: String = ""
+  ) {
     self.kind = kind
     self.routeID = routeID
     self.buses = buses
@@ -31,47 +50,83 @@ public struct WatchEvent: Sendable, Hashable, Identifiable {
     self.alertID = alertID
     self.headline = headline
     self.detail = detail
+    self.headsign = headsign
+    self.directionName = directionName
   }
 
-  /// Late and early are told once per route and cooldown; an alert once, however long it lasts.
-  public var id: String { kind == .alert ? "alert|\(alertID)|\(routeID)" : "\(kind.rawValue)|\(routeID)" }
+  /// Late and early are told once per destination and cooldown; an alert once, however long it lasts.
+  public var id: String {
+    kind == .alert ? "alert|\(alertID)|\(routeID)" : "\(kind.rawValue)|\(routeID)|\(headsign)|\(directionName)"
+  }
+
+  /// "2" for "2-EPIC CAMPUS": the number that tells the destinations of a route apart.
+  public var patternNumber: String {
+    guard let dash = headsign.firstIndex(of: "-"), dash != headsign.startIndex, headsign[..<dash].allSatisfy(\.isNumber) else { return "" }
+    return String(headsign[..<dash])
+  }
+
+  /// The destination without its number ("EPIC CAMPUS").
+  public var destination: String {
+    guard !patternNumber.isEmpty, let dash = headsign.firstIndex(of: "-") else { return headsign }
+    return String(headsign[headsign.index(after: dash)...])
+  }
 }
 
 public enum WatchEvaluator {
   /// How far ahead an alert that has not started yet is announced.
   public static let alertLookAhead: TimeInterval = 24 * 3600
 
-  /// Events for the watched `routes`, limited to the `kinds` the rider asked for.
+  /// Events for what the rider watches: every destination of the whole `routes`, and the single destinations in `lines`.
+  /// Buses are judged per destination and way (D2 eastbound on its own), limited to the `kinds` the rider asked for;
+  /// `lateAfter` and `earlyAfter` are how far from the timetable a bus has to be, in seconds, to count.
   public static func evaluate(
-    status: ServiceStatus?, alerts: [ServiceAlert], now: Date, routes: Set<String>, kinds: Set<WatchKind>
+    status: ServiceStatus?, alerts: [ServiceAlert], now: Date, routes: Set<String>, lines: Set<WatchLine> = [],
+    kinds: Set<WatchKind>, lateAfter: TimeInterval = ServiceStatusBuilder.lateThreshold,
+    earlyAfter: TimeInterval = -ServiceStatusBuilder.earlyThreshold
   ) -> [WatchEvent] {
-    guard !routes.isEmpty, !kinds.isEmpty else { return [] }
+    guard !routes.isEmpty || !lines.isEmpty, !kinds.isEmpty else { return [] }
+    let linesOfRoute = Dictionary(grouping: lines, by: \.routeID)
     var events: [WatchEvent] = []
 
     if let status {
-      for row in status.routes where routes.contains(row.routeID) {
-        if kinds.contains(.late), row.lateBuses > 0 {
-          let worst = row.busDelays.map(\.seconds).max() ?? ServiceStatusBuilder.lateThreshold
-          events.append(
-            WatchEvent(kind: .late, routeID: row.routeID, buses: row.lateBuses, seconds: Int(worst.rounded()), alertID: "", headline: "", detail: ""))
+      struct Group: Hashable { let headsign: String; let direction: String }
+      for row in status.routes {
+        let whole = routes.contains(row.routeID)
+        let chosen = Set((linesOfRoute[row.routeID] ?? []).map(\.headsign))
+        guard whole || !chosen.isEmpty else { continue }
+        var groups: [Group: [Double]] = [:]
+        for bus in row.busDelays where whole || chosen.contains(bus.headsign) {
+          groups[Group(headsign: bus.headsign, direction: bus.directionName), default: []].append(bus.seconds)
         }
-        if kinds.contains(.early), row.earlyBuses > 0 {
-          let ahead = -(row.busDelays.map(\.seconds).min() ?? ServiceStatusBuilder.earlyThreshold)
-          events.append(
-            WatchEvent(kind: .early, routeID: row.routeID, buses: row.earlyBuses, seconds: Int(ahead.rounded()), alertID: "", headline: "", detail: ""))
+        for (group, seconds) in groups {
+          let late = seconds.filter { $0 > lateAfter }
+          if kinds.contains(.late), let worst = late.max() {
+            events.append(
+              WatchEvent(
+                kind: .late, routeID: row.routeID, buses: late.count, seconds: Int(worst.rounded()), alertID: "", headline: "", detail: "",
+                headsign: group.headsign, directionName: group.direction))
+          }
+          let early = seconds.filter { $0 < -earlyAfter }
+          if kinds.contains(.early), let earliest = early.min() {
+            events.append(
+              WatchEvent(
+                kind: .early, routeID: row.routeID, buses: early.count, seconds: Int((-earliest).rounded()), alertID: "", headline: "",
+                detail: "", headsign: group.headsign, directionName: group.direction))
+          }
         }
       }
     }
 
     if kinds.contains(.alert) {
       for alert in alerts where isWorthTelling(alert, at: now) {
-        for route in alert.routeIDs where routes.contains(route) {
+        // An alert belongs to a route, not to a destination: a rider watching one destination of it hears it too.
+        for route in alert.routeIDs where routes.contains(route) || linesOfRoute[route] != nil {
           events.append(
             WatchEvent(kind: .alert, routeID: route, buses: 0, seconds: 0, alertID: alert.entityID, headline: alert.header, detail: alert.detail))
         }
       }
     }
-    return events.sorted { ($0.routeID, $0.kind.rawValue, $0.alertID) < ($1.routeID, $1.kind.rawValue, $1.alertID) }
+    return events.sorted { ($0.routeID, $0.kind.rawValue, $0.headsign, $0.directionName, $0.alertID) < ($1.routeID, $1.kind.rawValue, $1.headsign, $1.directionName, $1.alertID) }
   }
 
   private static func isWorthTelling(_ alert: ServiceAlert, at now: Date) -> Bool {

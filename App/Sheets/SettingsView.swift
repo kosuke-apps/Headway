@@ -108,7 +108,7 @@ struct SettingsView: View {
         } header: {
           Text("Live buses")
         } footer: {
-          Text("The city's feed is rebuilt about every 30 to 40 seconds and each bus reports about every 30 seconds (usually 25 to 35, sometimes up to a minute), so a position is about 25 seconds old when you see it. Automatic refresh asks right after each rebuild. Estimating moves each bus along its route at its last speed, and a bus drawn that way has a dashed ring; a veiled bus has not reported for over a minute. Bus positions are never slowed by a data setting.")
+          Text("The city's feed is rebuilt about every 30 to 40 seconds and each bus reports about every 30 seconds (usually 25 to 35, sometimes up to a minute), so a position is about 25 seconds old when you see it. Automatic refresh asks right after each rebuild. Estimating moves each bus along its route at its last speed, and a bus drawn that way has a dashed ring; a veiled bus has not reported for much longer than the others. Bus positions are never slowed by a data setting.")
         }
 
         Section {
@@ -231,16 +231,26 @@ struct SettingsView: View {
         NavigationLink {
           WatchedRoutesView()
         } label: {
-          LabeledContent("Routes to watch", value: "\(settings.values.watchedRoutes.count)")
+          LabeledContent("Routes to watch", value: "\(model.watchedCount)")
         }
         Toggle("A bus is running late", isOn: $settings.values.watchLate)
+        if settings.values.watchLate {
+          Picker("Late after", selection: $settings.values.watchLateMinutes) {
+            ForEach(Preferences.watchLateChoices, id: \.self) { Text("\($0) min").tag($0) }
+          }
+        }
         Toggle("A bus is running early", isOn: $settings.values.watchEarly)
+        if settings.values.watchEarly {
+          Picker("Early after", selection: $settings.values.watchEarlyMinutes) {
+            ForEach(Preferences.watchEarlyChoices, id: \.self) { Text("\($0) min").tag($0) }
+          }
+        }
         Toggle("A detour or other alert", isOn: $settings.values.watchAlerts)
       }
     } header: {
       Text("Notifications")
     } footer: {
-      Text("Headway looks at your routes whenever its live data updates while it is open, and now and then in the background when iOS allows it. There is no server behind this, so a notification can come late, or not at all, if iOS does not wake the app. Late means more than 5 minutes behind the timetable, early more than 2 minutes ahead.")
+      Text("Headway looks at your routes whenever its live data updates while it is open, and now and then in the background when iOS allows it. There is no server behind this, so a notification can come late, or not at all, if iOS does not wake the app. Late means more than \(settings.values.watchLateMinutes) minutes behind the timetable, early more than \(settings.values.watchEarlyMinutes) minutes ahead. Each destination and direction of a route (D2 to Epic Campus, D1 to the hospital) is judged and told on its own.")
     }
   }
 
@@ -256,7 +266,8 @@ struct SettingsView: View {
   }
 }
 
-/// The routes the rider wants to hear about.
+/// The routes the rider wants to hear about. A route opens to its destinations, so that one of them (D2 to Epic Campus)
+/// can be watched without the others.
 struct WatchedRoutesView: View {
   @Environment(AppModel.self) private var model
 
@@ -264,20 +275,84 @@ struct WatchedRoutesView: View {
     List {
       Section {
         ForEach(model.orderedRoutes) { route in
-          Toggle(isOn: Binding(get: { model.isWatching(route: route.id) }, set: { on in Task { await model.setWatching(route: route.id, on) } })) {
+          NavigationLink {
+            WatchedRouteView(routeID: route.id)
+          } label: {
             HStack(spacing: 12) {
               RouteBadge(routeID: route.id)
               Text(route.longName).font(.subheadline).lineLimit(1)
+              Spacer(minLength: 8)
+              Text(summary(route.id)).font(.caption).foregroundStyle(.secondary)
             }
           }
         }
       } footer: {
-        Text("You are told when one of these routes is late or early, or when the city posts a detour or alert for it.")
+        Text("You are told when a bus on one of these routes is late or early, or when the city posts a detour or alert for it. Open a route to watch only some of its destinations.")
       }
     }
     .navigationTitle(L10n.string("Routes to watch"))
     .navigationBarTitleDisplayMode(.inline)
     .notificationsDeniedAlert()
+  }
+
+  private func summary(_ id: String) -> String {
+    if model.isWatchingWhole(route: id) { return L10n.string("All destinations") }
+    let count = model.settings.values.watchedLines.filter { $0.routeID == id }.count
+    return count == 0 ? "" : L10n.string("\(count) destinations")
+  }
+}
+
+/// One route: watch all of it, or choose among its destinations.
+struct WatchedRouteView: View {
+  @Environment(AppModel.self) private var model
+  let routeID: String
+
+  var body: some View {
+    let patterns = model.overlay?.network.patterns(of: routeID) ?? []
+    let whole = model.isWatchingWhole(route: routeID)
+    List {
+      Section {
+        Toggle(isOn: Binding(get: { whole }, set: { on in Task { await model.setWatching(route: routeID, on) } })) {
+          HStack(spacing: 12) {
+            RouteBadge(routeID: routeID)
+            Text("All destinations").font(.subheadline)
+          }
+        }
+      }
+      if patterns.count > 1 {
+        Section {
+          ForEach(patterns) { pattern in
+            let line = WatchLine(routeID: routeID, headsign: pattern.headsign)
+            Toggle(isOn: Binding(get: { model.isWatching(line: line) }, set: { on in Task { await model.setWatching(line: line, on) } })) {
+              VStack(alignment: .leading, spacing: 2) {
+                Text(label(pattern)).font(.subheadline)
+                if let way = way(pattern) { Text(way).font(.caption).foregroundStyle(.secondary) }
+              }
+            }
+            .disabled(whole)
+          }
+        } header: {
+          Text("Destinations")
+        } footer: {
+          Text(whole ? "The whole route is watched, so every destination is." : "Choose the destinations you ride. A late bus on another one stays quiet.")
+        }
+      }
+    }
+    .navigationTitle(model.route(routeID)?.longName ?? routeID)
+    .navigationBarTitleDisplayMode(.inline)
+    .notificationsDeniedAlert()
+  }
+
+  /// "D2 to Epic Campus".
+  private func label(_ pattern: RoutePattern) -> String {
+    let name = (model.route(routeID)?.shortName ?? routeID) + (pattern.number ?? "")
+    return L10n.string("\(name) to \(pattern.destination.prettyHeadsign)")
+  }
+
+  /// "Eastbound", from the feed's direction name.
+  private func way(_ pattern: RoutePattern) -> String? {
+    guard let name = model.overlay?.network.variants(of: routeID).first(where: { $0.direction == pattern.direction })?.directionName, !name.isEmpty else { return nil }
+    return AppModel.compassName(name)
   }
 }
 

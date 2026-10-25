@@ -5,6 +5,17 @@ public struct BusDelay: Sendable, Hashable {
   public let vehicleID: String
   /// Seconds, positive when late.
   public let seconds: Double
+  /// The destination of the bus's trip as the feed writes it ("2-EPIC CAMPUS"), and the way it runs ("Eastbound"). A route
+  /// has several of these (D1 and D2, east and west), and a bus late on one says nothing about the others.
+  public let headsign: String
+  public let directionName: String
+
+  public init(vehicleID: String, seconds: Double, headsign: String = "", directionName: String = "") {
+    self.vehicleID = vehicleID
+    self.seconds = seconds
+    self.headsign = headsign
+    self.directionName = directionName
+  }
 }
 
 /// How one route is doing right now, from the buses that are reporting.
@@ -66,7 +77,9 @@ public enum ServiceStatusBuilder {
       guard let delay = delay(of: vehicle, prediction: predictionByTrip[vehicle.tripID], schedule: schedule, now: now) else {
         continue
       }
-      delays[vehicle.routeID, default: []].append(BusDelay(vehicleID: vehicle.id, seconds: delay))
+      let trip = schedule.trips[vehicle.tripID]
+      delays[vehicle.routeID, default: []].append(
+        BusDelay(vehicleID: vehicle.id, seconds: delay, headsign: trip?.headsign ?? "", directionName: trip?.directionName ?? ""))
     }
     let routes = buses.map { routeID, count -> RouteStatus in
       let measured = (delays[routeID] ?? []).sorted { $0.seconds > $1.seconds }

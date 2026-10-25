@@ -122,6 +122,31 @@ half a minute).
   15; 2.7% of trips in progress had no bus position at all. A trip that has no bus yet is the one that looks "gone" on a
   stop's board once its timetable time has passed.
 
+## When positions are a minute or two old (checked 2026-10-24)
+
+The app's status line sometimes said "positions 168 s old", and pressing Refresh did not help. It is the city's server, not the
+phone:
+
+- Live probe, 2026-10-24 15:15 to 15:17 CDT, a fetch every 4 s from the Mac: the feed stamped 15:15:56 (median position 9 s
+  old) was not replaced for 90 s (the feed's own stamp stood still for 85 s), and the next one, stamped 15:17:26, held
+  positions whose newest report was already 62 s old (median 70 s). Together that is a position of about 160 s at the worst
+  moment, with nothing newer on the server to fetch. The app's poll was not the bottleneck: it asks every 2 s after a new feed
+  is due and every 10 s after eight tries.
+- Over all recordings (`feedanalysis ages data/feeds 100`, "What a phone would have shown": the age of the median position at
+  the moment of the fetch), 2026-10-03 to 10-19: median 19 to 25 s a day, 90th percentile 30 to 39 s, and fewer than 1% of
+  the snapshots over 90 s. From 2026-10-20 on it is different: the 90th percentile is 76 to 87 s every day, and 1.3 to 5.2% of
+  the snapshots are over 90 s (10-22: median 68 s). The positions inside the feed were typically 10 to 15 s behind its stamp
+  until 10-19; on the mornings of 10-21 and 10-22 they were 67 to 73 s behind.
+- Steps between one feed stamp and the next, seen in the recordings (about one in 40 s): median 30 s, 90th percentile 60 s,
+  99th 91 s; 2.9% over 90 s. A recording only shows a stall when both of its ends were recorded, so real stalls are longer.
+- The recorder also stored fewer snapshots a day from 10-20 (1,100 to 1,700 against 2,280 before), which fits a server that
+  answers late or not at all.
+
+What the app does about it: the card that opens from the status line says so ("the city's feed is running behind ..."),
+instead of leaving the rider to press Refresh; the veil on a bus that has stopped reporting is relative to the other buses
+(45 s beyond the median age, at least 75 s), so a feed that is behind as a whole does not veil every marker at once. Nothing
+is slowed down or skipped: positions are still asked for as soon as the city publishes them.
+
 ## Alerts
 
 Nine alerts on 2026-10-03, all with effect `DETOUR`, a description, a link to a city detour page and a coarse active

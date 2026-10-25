@@ -707,6 +707,17 @@ final class MapLayers {
   /// Reports older than this are shown veiled.
   static let staleAfter: TimeInterval = 75
 
+  /// How old a report may be before its bus is veiled. A veiled bus says "this one has stopped reporting", which is only
+  /// true of a bus that is older than the rest: when the city's feed as a whole is behind (positions 60 to 90 s old on
+  /// every bus, as it was for whole mornings in October 2026) all markers would be veiled at once and none would stand
+  /// out. So the limit follows the fleet: 45 s beyond the median age, and never under `staleAfter`. The status line over the
+  /// map says how old the positions are.
+  static func staleLimit(ages: [TimeInterval]) -> TimeInterval {
+    guard !ages.isEmpty else { return staleAfter }
+    let median = ages.sorted()[ages.count / 2]
+    return max(staleAfter, median + 45)
+  }
+
   /// Draws buses at the given (possibly in-between) coordinates. While a route is in focus, only its buses (in the
   /// chosen direction) are drawn; while buses are highlighted, only those.
   func setBuses(_ buses: [DrawnBus], state: MapState) {
@@ -714,6 +725,7 @@ final class MapLayers {
     let focus = state.focus
     var features: [MLNPointFeature] = []
     var selected: MLNPointFeature?
+    let staleLimit = Self.staleLimit(ages: buses.map(\.age))
     for bus in buses {
       let vehicle = bus.vehicle
       let route = vehicle.routeID
@@ -730,7 +742,7 @@ final class MapLayers {
         point.coordinate = bus.coordinate
         point.attributes = [
           "id": vehicle.id, "route": "", "idle": true, "label": mark.label, "tag": mark.tag, "off": false,
-          "stale": bus.age > Self.staleAfter, "hl": "", "dir": -1, "est": false, "ring": "",
+          "stale": bus.age > staleLimit, "hl": "", "dir": -1, "est": false, "ring": "",
         ]
         features.append(point)
         if vehicle.id == state.selectedVehicle { selected = point }
@@ -753,7 +765,7 @@ final class MapLayers {
         "route": route,
         "label": (state.overlay?.routes[route]?.shortName ?? route) + (state.vehiclePatterns[vehicle.id] ?? ""),
         "off": state.offRouteVehicles.contains(vehicle.id),
-        "stale": bus.age > Self.staleAfter,
+        "stale": bus.age > staleLimit,
         "hl": focus.highlightedBuses[vehicle.id]?.rawValue ?? "",
         "dir": state.vehicleDirections[vehicle.id] ?? -1,
         "tag": state.vehicleHeadings[vehicle.id] ?? "",

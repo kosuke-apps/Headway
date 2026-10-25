@@ -20,6 +20,8 @@ enum FocusReturn: Equatable {
 enum ActiveSheet: Identifiable, Equatable {
   case stop(String)
   case bus(String)  // vehicle id
+  /// A trip on its service date that no bus is reporting on (yet): its timetable, stop by stop.
+  case trip(String, ServiceDate)
   case journey
   case settings
   case routes
@@ -29,7 +31,7 @@ enum ActiveSheet: Identifiable, Equatable {
   /// dismissing and presenting a new one.
   var id: String {
     switch self {
-    case .stop, .bus, .journey: "detail"
+    case .stop, .bus, .trip, .journey: "detail"
     case .settings: "settings"
     case .routes: "routes"
     case .search: "search"
@@ -38,7 +40,7 @@ enum ActiveSheet: Identifiable, Equatable {
 
   var isDetail: Bool {
     switch self {
-    case .stop, .bus, .journey: true
+    case .stop, .bus, .trip, .journey: true
     default: false
     }
   }
@@ -115,6 +117,9 @@ final class AppModel {
   private(set) var returnStopID: String?
   /// When the vehicle feed last answered successfully.
   private(set) var lastLiveUpdate: Date?
+  /// When a feed newer than the one before last arrived (the phone's clock): the live card says how long the city's feed has
+  /// been standing still when positions get old.
+  private(set) var feedChangedAt: Date?
   /// True when the most recent poll failed.
   private(set) var liveFailing = false
 
@@ -442,13 +447,40 @@ final class AppModel {
     return focus.highlightedBuses.isEmpty || focus.highlightedBuses[vehicleID] != nil
   }
 
+  /// Opens the timetable of a trip, stop by stop: for a row of the stop board that no bus is reporting on yet. The line of
+  /// the trip goes on the map like a bus's; the camera stays where it is (the rider is looking at a stop).
+  func selectTrip(_ tripID: String, on date: ServiceDate) {
+    guard let trip = schedule?.trips[tripID] else { return }
+    returnStopID = selectedStopID ?? (sheet?.isDetail == true ? returnStopID : nil)
+    dockedVehicleID = nil
+    if let bus = vehicles.first(where: { $0.tripID == tripID }) {
+      selectBus(bus.id, moveCamera: false)  // a bus has turned up on it: show the live trip
+      return
+    }
+    sheet = .trip(tripID, date)
+    if !focusShowsTrip(route: trip.routeID, direction: trip.directionID, headsign: trip.headsign) {
+      focusOnTrip(route: trip.routeID, direction: trip.directionID, headsign: trip.headsign)
+    }
+  }
+
+  private func focusShowsTrip(route: String, direction: Int, headsign: String) -> Bool {
+    let current = focus
+    guard current.isActive, !current.fromBus, current.routes.contains(route) else { return false }
+    if let wanted = current.direction, wanted != direction { return false }
+    if let wanted = current.headsign, wanted != headsign { return false }
+    return current.highlightedBuses.isEmpty
+  }
+
   /// Shows the line of one bus's own trip: its route, its direction and, where the route has several destinations in
   /// that direction (D2 to Epic Campus, to Verona), only the line to its destination.
   private func focusOnTrip(of vehicle: VehicleSample) {
-    let direction = vehicleDirections[vehicle.id]
-    let all = direction.map { overlay?.network.patterns(of: vehicle.routeID, direction: $0) ?? [] } ?? []
+    focusOnTrip(route: vehicle.routeID, direction: vehicleDirections[vehicle.id], headsign: vehicleHeadsigns[vehicle.id])
+  }
+
+  private func focusOnTrip(route: String, direction: Int?, headsign: String?) {
+    let all = direction.map { overlay?.network.patterns(of: route, direction: $0) ?? [] } ?? []
     focusReturn = nil
-    focus = Self.tripFocus(route: vehicle.routeID, direction: direction, headsign: vehicleHeadsigns[vehicle.id], patterns: all)
+    focus = Self.tripFocus(route: route, direction: direction, headsign: headsign, patterns: all)
   }
 
   /// The focus for a bus's trip: `patterns` are all the destinations of its route in its direction.
@@ -469,6 +501,7 @@ final class AppModel {
     switch sheet {
     case .stop(let id)?: dockedStopID = id
     case .bus(let id)?: dockedVehicleID = id
+    case .trip?: if focus.fromBus { focus = MapFocus() }  // a timetable has no marker on the map to wait in the dock
     default: break
     }
     sheet = nil
@@ -591,7 +624,10 @@ final class AppModel {
 
   func clearSelection() {
     returnStopID = nil
-    let closesBus = if case .bus? = sheet { true } else { false }
+    let closesBus = switch sheet {
+    case .bus?, .trip?: true
+    default: false
+    }
     sheet = nil
     if closesBus, focus.fromBus { focus = MapFocus() }
   }
@@ -754,7 +790,7 @@ final class AppModel {
   }
 
   /// The feed's direction name in the app's language ("Westbound" is "西行き"); other names are shown as the feed has them.
-  private static func compassName(_ name: String) -> String {
+  nonisolated static func compassName(_ name: String) -> String {
     switch name.lowercased() {
     case "eastbound": L10n.string("Eastbound")
     case "westbound": L10n.string("Westbound")
@@ -1060,6 +1096,7 @@ final class AppModel {
           offRouteVehicleIDs = computeOffRoute(snapshot.vehicles)
           pollUnchanged = 0
           pollLastChange = Date()
+          feedChangedAt = pollLastChange
         } else {
           pollUnchanged += 1
         }
@@ -1117,7 +1154,7 @@ final class AppModel {
       lastAlertFetch = Date()
       if let snapshot = try? await client.fetch(.alerts) { alerts = snapshot.alerts }
     }
-    let watching = settings.values.watchEnabled && !settings.values.watchedRoutes.isEmpty
+    let watching = settings.values.watchEnabled && settings.values.isWatchingAnything
     if sheet?.isDetail == true || mode != .map || watching || needsDelays,
       Date().timeIntervalSince(lastTripsFetch) >= predictionInterval(watching: watching)
     {
@@ -1162,41 +1199,76 @@ final class AppModel {
 
   // MARK: Watched routes
 
-  /// Turns watching of a route on or off; the first time, asks for permission to send notifications.
+  /// Asks for permission to send notifications the first time something is watched; false when it was refused.
+  private func allowWatching() async -> Bool {
+    if settings.values.watchEnabled { return true }
+    guard await WatchNotifier.authorize() else {
+      notificationsDenied = true
+      return false
+    }
+    settings.values.watchEnabled = true
+    return true
+  }
+
+  /// Turns watching of a whole route (every direction and destination) on or off; the first time, asks for permission to
+  /// send notifications. Turning it off also lets go of the single destinations chosen on that route.
   func setWatching(route id: String, _ on: Bool) async {
     if on {
-      if !settings.values.watchEnabled {
-        guard await WatchNotifier.authorize() else {
-          notificationsDenied = true
-          return
-        }
-        settings.values.watchEnabled = true
-      }
+      guard await allowWatching() else { return }
       if !settings.values.watchedRoutes.contains(id) { settings.values.watchedRoutes.append(id) }
     } else {
       settings.values.watchedRoutes.removeAll { $0 == id }
+      settings.values.watchedLines.removeAll { $0.routeID == id }
     }
   }
 
-  func isWatching(route id: String) -> Bool { settings.values.watchedRoutes.contains(id) }
+  /// Turns watching of one destination of a route on or off.
+  func setWatching(line: WatchLine, _ on: Bool) async {
+    if on {
+      guard await allowWatching() else { return }
+      if !settings.values.watchedLines.contains(line) { settings.values.watchedLines.append(line) }
+    } else {
+      settings.values.watchedLines.removeAll { $0 == line }
+    }
+  }
+
+  /// True when the route is watched as a whole or in part.
+  func isWatching(route id: String) -> Bool {
+    settings.values.watchedRoutes.contains(id) || settings.values.watchedLines.contains { $0.routeID == id }
+  }
+
+  func isWatchingWhole(route id: String) -> Bool { settings.values.watchedRoutes.contains(id) }
+
+  /// True when this destination is told about, on its own or because the whole route is watched.
+  func isWatching(line: WatchLine) -> Bool {
+    settings.values.watchedRoutes.contains(line.routeID) || settings.values.watchedLines.contains(line)
+  }
+
+  /// Routes and single destinations being watched, for the count in Settings.
+  var watchedCount: Int {
+    let wholeRoutes = Set(settings.values.watchedRoutes)
+    return wholeRoutes.count + settings.values.watchedLines.filter { !wholeRoutes.contains($0.routeID) }.count
+  }
 
   /// Looks at the watched routes with what is known now and notifies about anything new.
   func evaluateWatch() async {
     let prefs = settings.values
-    guard prefs.watchEnabled, !prefs.watchedRoutes.isEmpty, let schedule else { return }
+    guard prefs.watchEnabled, prefs.isWatchingAnything, let schedule else { return }
     var kinds: Set<WatchKind> = []
     if prefs.watchLate { kinds.insert(.late) }
     if prefs.watchEarly { kinds.insert(.early) }
     if prefs.watchAlerts { kinds.insert(.alert) }
     let now = Date()
     let status = ServiceStatusBuilder.build(schedule: schedule, predictions: predictions, vehicles: vehicles, now: now)
-    let events = WatchEvaluator.evaluate(status: status, alerts: alerts, now: now, routes: Set(prefs.watchedRoutes), kinds: kinds)
+    let events = WatchEvaluator.evaluate(
+      status: status, alerts: alerts, now: now, routes: Set(prefs.watchedRoutes), lines: Set(prefs.watchedLines), kinds: kinds,
+      lateAfter: Double(prefs.watchLateMinutes) * 60, earlyAfter: Double(prefs.watchEarlyMinutes) * 60)
     await watch.deliver(events, now: now) { [weak self] id in self?.route(id)?.shortName ?? id }
   }
 
   /// One check from the background: loads what is needed, looks, and goes back to sleep.
   func runBackgroundWatch() async {
-    guard settings.values.watchEnabled, !settings.values.watchedRoutes.isEmpty else { return }
+    guard settings.values.watchEnabled, settings.values.isWatchingAnything else { return }
     if schedule == nil, let url = startingZip() { try? await apply(try await Self.parse(url, current: overlay)) }
     guard schedule != nil else { return }
     if let snapshot = try? await client.fetch(.vehicles) { vehicles = snapshot.vehicles }
@@ -1290,10 +1362,18 @@ final class AppModel {
 
   // MARK: Bus details
 
-  func remainingStops(of vehicle: VehicleSample) -> [TripStopEta] {
+  /// Every stop of a bus's trip to the terminal, those it has passed marked.
+  func tripStops(of vehicle: VehicleSample, now: Date = Date()) -> [TripStopEta] {
     guard let schedule else { return [] }
     let prediction = predictions.first { $0.tripID == vehicle.tripID }
-    return Arrivals.remainingStops(schedule: schedule, tripID: vehicle.tripID, now: Date(), prediction: prediction)
+    return Arrivals.tripStops(
+      schedule: schedule, tripID: vehicle.tripID, now: now, prediction: prediction, currentSequence: vehicle.currentStopSequence)
+  }
+
+  /// Every stop of a trip no bus is reporting on, with the timetable's times.
+  func tripStops(tripID: String, on date: ServiceDate) -> [TripStopEta] {
+    guard let schedule else { return [] }
+    return Arrivals.tripStops(schedule: schedule, tripID: tripID, now: Date(), prediction: nil, serviceDate: date)
   }
 
   /// Alerts in force that concern this stop, directly or through a route that serves it.

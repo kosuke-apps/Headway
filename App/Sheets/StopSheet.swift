@@ -239,7 +239,11 @@ struct ArrivalRow: View {
     let full = model.settings.values.showDelayDetails && model.settings.values.showScheduledTimes
     let gone = arrival.hasGone(at: now)
     Button {
-      if let vehicle = arrival.vehicle { model.selectBus(vehicle.id) }
+      if let vehicle = arrival.vehicle {
+        model.selectBus(vehicle.id)
+      } else {
+        model.selectTrip(arrival.tripID, on: arrival.serviceDate)
+      }
     } label: {
       HStack(spacing: 12) {
         RouteBadge(routeID: arrival.routeID)
@@ -283,8 +287,6 @@ struct ArrivalRow: View {
     }
     .buttonStyle(.plain)
     .opacity(gone ? 0.6 : 1)
-    // Only buses with a position can be shown on the map; timetable-only rows stay fully legible but do nothing.
-    .allowsHitTesting(arrival.vehicle != nil)
     .accessibilityElement(children: .combine)
   }
 }

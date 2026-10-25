@@ -1,4 +1,5 @@
 import Foundation
+import HeadwayCore
 
 enum AppearanceMode: String, Codable, CaseIterable, Identifiable {
   case system, light, dark
@@ -150,10 +151,22 @@ struct Preferences: Codable, Equatable {
 
   // Notifications about watched routes
   var watchEnabled = false
+  /// Routes watched in every direction and destination.
   var watchedRoutes: [String] = []
+  /// Single destinations watched on their own ("D2 to Epic Campus").
+  var watchedLines: [WatchLine] = []
+  /// How far from the timetable a bus has to be, in minutes, to be told about it.
+  var watchLateMinutes = 5
+  var watchEarlyMinutes = 2
   var watchLate = true
   var watchEarly = true
   var watchAlerts = true
+
+  static let watchLateChoices = [3, 5, 10, 15]
+  static let watchEarlyChoices = [1, 2, 3, 5]
+
+  /// True when any route, or any single destination, is watched.
+  var isWatchingAnything: Bool { !watchedRoutes.isEmpty || !watchedLines.isEmpty }
 
   // Last map position
   var lastLatitude: Double?
@@ -207,6 +220,9 @@ struct Preferences: Codable, Equatable {
     recentStops = value(.recentStops, d.recentStops)
     watchEnabled = value(.watchEnabled, d.watchEnabled)
     watchedRoutes = value(.watchedRoutes, d.watchedRoutes)
+    watchedLines = value(.watchedLines, d.watchedLines)
+    watchLateMinutes = Self.watchLateChoices.contains(value(.watchLateMinutes, d.watchLateMinutes)) ? value(.watchLateMinutes, d.watchLateMinutes) : 5
+    watchEarlyMinutes = Self.watchEarlyChoices.contains(value(.watchEarlyMinutes, d.watchEarlyMinutes)) ? value(.watchEarlyMinutes, d.watchEarlyMinutes) : 2
     watchLate = value(.watchLate, d.watchLate)
     watchEarly = value(.watchEarly, d.watchEarly)
     watchAlerts = value(.watchAlerts, d.watchAlerts)
@@ -223,7 +239,7 @@ struct Preferences: Codable, Equatable {
     case walkSpeed, maxWalkMeters, maxTransfers, transferSeconds, accessibleOnly, journeySort, reminderLeadMinutes
     case savedPlaces, savedTrips, recentTrips
     case hiddenRoutes, favoriteStops, favoriteRoutes, recentStops
-    case watchEnabled, watchedRoutes, watchLate, watchEarly, watchAlerts
+    case watchEnabled, watchedRoutes, watchedLines, watchLateMinutes, watchEarlyMinutes, watchLate, watchEarly, watchAlerts
     case lastLatitude, lastLongitude, lastZoom
   }
 }

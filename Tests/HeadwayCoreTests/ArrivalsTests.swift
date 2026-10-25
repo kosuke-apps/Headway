@@ -179,6 +179,28 @@ import Testing
     #expect(stops[0].expected == predicted)
   }
 
+  @Test func tripStopsListEveryStopAndMarkThosePassed() {
+    let stops = Arrivals.tripStops(schedule: schedule, tripID: "t1", now: monday(8, 1), prediction: nil)
+    #expect(stops.map(\.stopID) == ["s1", "s2"])
+    #expect(stops.map(\.passed) == [true, false])
+  }
+
+  @Test func theBusSaysWhichStopsItHasPassed() {
+    // A late bus: its timetable time at s1 is long gone, but it reports that it is still heading for s1.
+    let stops = Arrivals.tripStops(
+      schedule: schedule, tripID: "t1", now: monday(8, 20), prediction: nil, currentSequence: 1)
+    #expect(stops.map(\.passed) == [false, false])
+    let later = Arrivals.tripStops(
+      schedule: schedule, tripID: "t1", now: monday(8, 20), prediction: nil, currentSequence: 2)
+    #expect(later.map(\.passed) == [true, false])
+  }
+
+  @Test func aTripOfAnotherDayCanBeListedByItsServiceDate() {
+    let stops = Arrivals.tripStops(
+      schedule: schedule, tripID: "t1", now: monday(8, 1), prediction: nil, serviceDate: ServiceDate(20_261_005))
+    #expect(stops.first?.scheduled == monday(8, 0))
+  }
+
   @Test func serviceDateOfAPastMidnightTripIsThePreviousDay() {
     var calendar = Calendar(identifier: .gregorian)
     calendar.timeZone = schedule.timeZone

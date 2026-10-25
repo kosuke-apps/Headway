@@ -24,7 +24,14 @@ struct LiveSummary: View {
           tile(fleet.early, "Early", .blue)
           tile(fleet.total - fleet.measured, "No prediction", .gray)
         }
-        if let age {
+        if let age, age > 60, let changed = model.feedChangedAt, !model.liveFailing {
+          // Not the phone, not the connection: the city's server has not published a newer feed, or published one whose
+          // positions were already old. Asking again cannot help, so the card says so instead of leaving the rider to press
+          // Refresh.
+          let arrived = Int((model.positionAge(at: changed) ?? age).rounded())
+          Label("The city's feed is running behind. Its last update came \(Int(context.date.timeIntervalSince(changed).rounded())) s ago, and the positions in it were already \(arrived) s old. Refreshing cannot make the city publish sooner; the app keeps asking and shows new positions as soon as they appear.", systemImage: "hourglass")
+            .font(.footnote).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
+        } else if let age {
           Text("Positions are \(Int(age.rounded())) s old. Each bus reports about every 30 seconds (usually 25 to 35, sometimes up to a minute), and the city's feed is rebuilt about as often.")
             .font(.footnote).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
