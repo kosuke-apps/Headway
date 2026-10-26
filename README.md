@@ -1,7 +1,59 @@
-# Headway
+<p align="center">
+  <img src="docs/icon.png" width="128" alt="Headway app icon">
+</p>
 
-A fast, live bus map for Madison, WI (Metro Transit): every route and stop on an offline map, buses moving in real
-time, and the next arrivals at any stop. English UI with a Japanese localization.
+<h1 align="center">Headway</h1>
+
+<p align="center"><b>A fast, live bus map for Madison, WI (Metro Transit): see where the buses are and when the next one really comes.</b></p>
+
+<p align="center">
+  <a href="https://github.com/kosuke-apps/Headway/releases/latest"><b>Download</b></a> &nbsp;·&nbsp;
+  <a href="#install">Install</a> &nbsp;·&nbsp;
+  <a href="PRIVACY.md">Privacy</a> &nbsp;·&nbsp;
+  <a href="https://github.com/kosuke-apps">More apps</a>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/01-live-map.png" width="23%" alt="The Madison bus network on an offline map with live buses">
+  <img src="docs/screenshots/02-stop-arrivals.png" width="23%" alt="The next departures at Capitol Square, live where a bus reports and from the timetable otherwise">
+  <img src="docs/screenshots/03-trip-planner.png" width="23%" alt="Trip planner results with walking, transfers and live buses">
+  <img src="docs/screenshots/04-bus-stops.png" width="23%" alt="A bus's stops to the end of its trip, the ones it has passed greyed out">
+</p>
+
+## What it does
+
+- **Every route and stop on an offline map.** The Madison basemap is in the app, so the map is there at once, with all routes,
+  all stops and the buses moving on it in real time.
+- **The next buses at any stop.** Live where a bus is reporting ("4 min late"), from the timetable otherwise, and always
+  marked as which is which. A trip no bus has been seen on yet is listed with its timetable instead of vanishing.
+- **Follow a bus.** Tap a bus to see its line on the map and every stop to the end of its trip, with the stops it has
+  passed greyed out.
+- **Plan a trip.** Walking, transfers and live delays are taken into account, with leave now, depart at and arrive by.
+- **Late and early buses.** Watch a route, or one destination of it, and get a short notification when its buses run late
+  or early.
+- **Light on data.** Bus positions are 7 KB an update; a setting keeps the larger arrival predictions off mobile data.
+  Live positions are never slowed.
+- **English and Japanese.** The interface is in English with a Japanese localization; the language is chosen in Settings.
+
+## Install
+
+Headway is not in the App Store. Each release is an unsigned `.ipa`, on purpose: sign it with your own Apple ID through a
+sideloading tool such as AltStore or Sideloadly.
+
+1. Download `Headway-x.y.z-unsigned.ipa` and its `.sha256` from the [latest release](https://github.com/kosuke-apps/Headway/releases/latest).
+2. Check the file: `shasum -a 256 -c Headway-x.y.z-unsigned.ipa.sha256`.
+3. Open the `.ipa` in the sideloading tool and install it on your iPhone (iOS 17 or later).
+
+To build it yourself, see [Installing](#installing) below. Details on what the tools can and cannot do with a free Apple ID
+are there too.
+
+## Privacy
+
+Headway has no account, no analytics and no server of its own. Your location, settings and saved places stay on the phone.
+The only network requests are to the City of Madison's public bus feeds and, when you search for a place by name, to Apple
+Maps. See [PRIVACY.md](PRIVACY.md).
+
+---
 
 Headway is an independent project. It is not made, endorsed or supported by the City of Madison or Metro Transit; it uses
 the data the city publishes (see Data below), and bus times can differ from what the buses do.
